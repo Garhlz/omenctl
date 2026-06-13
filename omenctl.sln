@@ -2,11 +2,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.0.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OmenMon.Core", "src\OmenMon.Core\OmenMon.Core.csproj", "{11111111-1111-4111-8111-111111111111}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "omenctl.Core", "src\omenctl.Core\omenctl.Core.csproj", "{11111111-1111-4111-8111-111111111111}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OmenMon.Sensors", "src\OmenMon.Sensors\OmenMon.Sensors.csproj", "{22222222-2222-4222-8222-222222222222}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "omenctl.Sensors", "src\omenctl.Sensors\omenctl.Sensors.csproj", "{22222222-2222-4222-8222-222222222222}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OmenMon.Agent", "src\OmenMon.Agent\OmenMon.Agent.csproj", "{33333333-3333-4333-8333-333333333333}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "omenctl.Agent", "src\omenctl.Agent\omenctl.Agent.csproj", "{33333333-3333-4333-8333-333333333333}"
 EndProject
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -34,4 +34,3 @@ Global
         SolutionGuid = {44444444-4444-4444-8444-444444444444}
     EndGlobalSection
 EndGlobal
-

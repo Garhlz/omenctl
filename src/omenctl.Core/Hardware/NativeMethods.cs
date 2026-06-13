@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace OmenMon.Core.Hardware;
+namespace OmenCtl.Core.Hardware;
 
 internal static class NativeMethods
 {

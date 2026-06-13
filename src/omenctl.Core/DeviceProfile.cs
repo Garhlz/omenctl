@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace OmenMon.Core;
+namespace OmenCtl.Core;
 
 public sealed record DeviceProfile(
     [property: JsonPropertyName("id")] string Id,
@@ -36,4 +36,3 @@ public static class DeviceProfiles
         OmenFanRateInterpretation: "unknown",
         RawFanMode: null);
 }
-

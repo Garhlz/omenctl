@@ -3,7 +3,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
-namespace OmenMon.Core.Hardware;
+namespace OmenCtl.Core.Hardware;
 
 internal enum OmenFanMode : byte
 {

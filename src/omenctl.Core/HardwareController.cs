@@ -1,4 +1,4 @@
-namespace OmenMon.Core;
+namespace OmenCtl.Core;
 
 public interface IHardwareController
 {

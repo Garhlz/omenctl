@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace OmenMon.Core;
+namespace OmenCtl.Core;
 
 public sealed record AgentCommand(
     [property: JsonPropertyName("cmd")] string Cmd,

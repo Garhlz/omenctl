@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace OmenMon.Core.Hardware;
+namespace OmenCtl.Core.Hardware;
 
 internal sealed class OmenDriverException(string message) : Exception(message);
 
@@ -257,8 +257,8 @@ internal sealed class OmenRing0Driver : IDisposable
     private static void ExtractDriver(string filePath)
     {
         Assembly assembly = typeof(OmenRing0Driver).Assembly;
-        using Stream stream = assembly.GetManifestResourceStream("OmenMon.Driver.sys.gz")
-            ?? throw new OmenDriverException("Embedded driver resource OmenMon.Driver.sys.gz was not found.");
+        using Stream stream = assembly.GetManifestResourceStream("omenctl.Driver.sys.gz")
+            ?? throw new OmenDriverException("Embedded driver resource omenctl.Driver.sys.gz was not found.");
         using FileStream target = new(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
         stream.Position = 1;
         using GZipStream gzipStream = new(stream, CompressionMode.Decompress);
@@ -267,11 +267,11 @@ internal sealed class OmenRing0Driver : IDisposable
 
     private static string GetDriverFilePath()
     {
-        string? filePath = Path.ChangeExtension(Environment.ProcessPath, ".sys");
+        string? filePath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".sys");
         if(!string.IsNullOrWhiteSpace(filePath) && CanCreate(filePath))
             return filePath;
 
-        filePath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".sys");
+        filePath = Path.ChangeExtension(Environment.ProcessPath, ".sys");
         if(!string.IsNullOrWhiteSpace(filePath) && CanCreate(filePath))
             return filePath;
 
@@ -297,9 +297,9 @@ internal sealed class OmenRing0Driver : IDisposable
 
     private static string GetServiceName()
     {
-        string? name = Path.GetFileNameWithoutExtension(Environment.ProcessPath);
+        string? name = Assembly.GetExecutingAssembly().GetName().Name;
         if(string.IsNullOrWhiteSpace(name))
-            name = Assembly.GetExecutingAssembly().GetName().Name ?? "OmenMonAgent";
+            name = Path.GetFileNameWithoutExtension(Environment.ProcessPath) ?? "omenctl";
         return $"R0{name}".Replace(" ", string.Empty).Replace(".", "_");
     }
 

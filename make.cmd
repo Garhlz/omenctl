@@ -1,6 +1,6 @@
 @echo off
 rem
-rem  Omen Agent build helper
+rem  omenctl build helper
 rem
 set DOTNET_CLI_TELEMETRY_OPTOUT=1
 set DOTNET_NOLOGO=1
@@ -13,21 +13,21 @@ set DOTNET_ROOT=%USERPROFILE%\scoop\apps\dotnet-sdk\current
 set op_scope=build clean clean-driver agent-build agent-run usage
 set op=%~1
 set sc=%SystemRoot%\System32\sc.exe
-set driver_service=R0OmenMon_Agent
-set agent_project=src\OmenMon.Agent\OmenMon.Agent.csproj
-set agent_bin=src\OmenMon.Agent\bin\x64\Release\net10.0-windows\OmenMon.Agent.dll
+set driver_service=R0omenctl
+set agent_project=src\omenctl.Agent\omenctl.Agent.csproj
+set agent_bin=src\omenctl.Agent\bin\x64\Release\net10.0-windows\omenctl.dll
 pushd %~dps0
 for %%p in (%op_scope%) do if "%op%"=="%%p" echo BEGIN %~n0 (%op%) & goto %op%
 echo BEGIN %~n0 & goto usage
 
 :build
-"%dotnet%" build OmenMon.Modern.sln -c Release -p:Platform=x64
+"%dotnet%" build omenctl.sln -c Release -p:Platform=x64
 if errorlevel 1 goto fail
 goto end
 
 :clean
 call :DriverClean
-"%dotnet%" clean OmenMon.Modern.sln -c Release -p:Platform=x64
+"%dotnet%" clean omenctl.sln -c Release -p:Platform=x64
 if errorlevel 1 goto fail
 goto end
 
@@ -36,7 +36,7 @@ call :DriverClean
 goto end
 
 :agent-build
-"%dotnet%" build OmenMon.Modern.sln -c Release -p:Platform=x64
+"%dotnet%" build omenctl.sln -c Release -p:Platform=x64
 if errorlevel 1 goto fail
 goto end
 

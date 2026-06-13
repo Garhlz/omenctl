@@ -1,6 +1,6 @@
 using System.Threading;
 
-namespace OmenMon.Core.Hardware;
+namespace OmenCtl.Core.Hardware;
 
 internal enum EcRegister : byte
 {

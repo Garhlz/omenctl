@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace OmenMon.Core;
+namespace OmenCtl.Core;
 
 public sealed record HardwareSnapshot
 {
@@ -45,4 +45,3 @@ public sealed record FanSnapshot(
     [property: JsonPropertyName("level")] int? Level,
     [property: JsonPropertyName("rpmTrusted")] bool RpmTrusted,
     [property: JsonPropertyName("levelTrusted")] bool LevelTrusted);
-

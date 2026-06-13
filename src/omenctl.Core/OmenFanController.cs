@@ -1,7 +1,7 @@
-using OmenMon.Core.Hardware;
+using OmenCtl.Core.Hardware;
 using System.Runtime.InteropServices;
 
-namespace OmenMon.Core;
+namespace OmenCtl.Core;
 
 public sealed class OmenFanController : IHardwareController, IDisposable
 {
