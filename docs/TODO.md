@@ -1,8 +1,8 @@
-# TODO：Omen Agent 现代化路线
+# TODO：omenctl 现代化路线
 
 ## 目标
 
-把当前项目整理成面向 HP Omen 16 / 8BAB 的现代本地 Agent。
+把当前项目整理成面向 HP Omen 16 / 8BAB 的现代本地 Agent `omenctl`。
 
 核心原则：
 
@@ -15,11 +15,11 @@
 
 已完成：
 
-- 新增 `OmenMon.Modern.sln`。
+- 新增 `omenctl.sln`。
 - 新增 `.NET 10` 项目：
-  - `src/OmenMon.Core`
-  - `src/OmenMon.Sensors`
-  - `src/OmenMon.Agent`
+  - `src/omenctl.Core`
+  - `src/omenctl.Sensors`
+  - `src/omenctl.Agent`
 - `make build` 已切到现代 Agent 构建。
 - Agent 已支持 JSON over stdio 的基本调度骨架。
 - `snapshot` 可返回合法 JSON。
@@ -31,7 +31,7 @@
   - `startCurve`
   - `curveStatus`
   - `stopCurve`
-  - 当前只使用 snapshot 中可信的摄氏温度源，后续应切到 LHM / NVML。
+  - 当前按 `max(trustedCpuTemp, trustedGpuTemp)` 选择温度源。
 - 非管理员运行时：
   - `snapshot` 返回降级 JSON。
   - `setManual` / `setMax` / `setProgram` 返回 `hardware_access_denied`。
@@ -44,6 +44,15 @@
   - GPTM GPU 温度不可信
   - CPU 温度需要 BIOS fallback 或外部传感器来源
 - 已清理旧 OmenMon WinForms / CLI / .NET Framework 项目和旧 UI 资源。
+- 已完成现代命名迁移：
+  - `omenctl.sln`
+  - `src/omenctl.Core`
+  - `src/omenctl.Sensors`
+  - `src/omenctl.Agent`
+- 已接入真实传感器来源：
+  - LibreHardwareMonitor 提供 CPU 温度/负载
+  - NVML 提供 GPU 温度/负载/显存占用
+  - `raw.sensors` 附带 GPU 功耗与频率
 
 ## 已完成阶段：真实风扇控制
 
@@ -64,32 +73,33 @@
 - `applyAndReadback` 能记录 `0s/1s/3s/5s/15s` 的读回结果。
 - 出错时只返回 JSON error，不弹窗、不退出整个进程。
 
-## 下一阶段：接入传感器数据
+## 已完成阶段：命名迁移与传感器接入
 
-目标是让 OmenMon 不再负责不可信的温度/RPM 读取。
+当前阶段目标已经完成，OmenMon 不再承担主传感器来源职责。
 
-要做：
+已完成：
 
-1. 在 `OmenMon.Sensors` 接入 LibreHardwareMonitor。
-2. 读取：
+1. 全面将现代代码和文档改名为 `omenctl`。
+2. 在 `omenctl.Sensors` 接入 LibreHardwareMonitor。
+3. 已读取：
    - CPU package temperature
    - CPU load
    - GPU temperature
    - GPU load
    - SSD temperature
-3. 接入 NVML。
-4. 优先使用 NVML 读取 NVIDIA GPU：
+4. 已接入 NVML。
+5. 已优先使用 NVML 读取 NVIDIA GPU：
    - temperature
    - utilization
    - memory usage
    - power
    - clocks
-5. 建立 `SensorFusionService`：
+6. 已建立 `SensorFusionService`：
    - CPU 温度优先 LHM，失败再 BIOS fallback。
    - GPU 温度优先 NVML，其次 LHM。
    - OmenMon `GPTM<=5C` 标记为 suspect。
    - `RPM=0 && level>0` 标记为 `rpm_unavailable`。
-6. 将风扇曲线温度源从 BIOS fallback 切到 LHM / NVML。
+7. 已将风扇曲线温度源切到 `max(trustedCpuTemp, trustedGpuTemp)`。
 
 验收标准：
 
@@ -97,6 +107,16 @@
 - `snapshot.loads.cpu` 有可信来源。
 - `snapshot.temps.gpu` 优先来自 NVML 或 LHM。
 - 不再把 `GPTM=1C` 展示为正常 GPU 温度。
+- `curveStatus` 在管理员场景下应能显示真实温度来源。
+
+## 下一阶段：稳定性与策略校准
+
+要做：
+
+1. 在管理员场景下持续验证风扇曲线后台循环。
+2. 观察 `Power/Silent` 是否仍需保留为兼容命令。
+3. 根据 8BAB 实测结果微调默认曲线点。
+4. 视需要补充更多存储、主板或功耗观测项。
 
 ## Agent 协议
 
