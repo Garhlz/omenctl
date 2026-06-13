@@ -71,37 +71,18 @@
 - RPM 不可信 → "RPM unavailable" 说明文字。
 - 复制当前快照 JSON 按钮。
 
-## P1：风扇曲线 GUI MVP
+## P1：风扇曲线 GUI MVP ✅
 
-**ROI：高**  
-**目标：把已经可运行的曲线能力做成可用界面。**
+**ROI：高**
+**状态：已完成（2026-06-14）**
 
-首版只做固定模板，不做完整编辑器。
+完成内容：
 
-任务：
-
-1. 提供一个默认曲线模板：
-   - 45C -> 35/35
-   - 55C -> 45/45
-   - 65C -> 50/50
-2. 提供启动、停止、刷新状态按钮。
-3. 展示：
-   - 是否运行
-   - 最近温度
-   - 温度来源
-   - 最近应用点
-   - tickCount
-   - applyCount
-   - lastError
-4. 曲线运行时允许用户一键停止。
-5. 曲线运行时避免用户同时乱点手动模式；必要时弹出确认。
-
-验收：
-
-- GUI 可以启动默认曲线。
-- `curveStatus` 字段可视化。
-- 曲线停止后状态清楚。
-- 出现 `lastError` 时 GUI 有明显提示。
+- CurvePanel：启动/停止/状态，曲线点预览，CPU/GPU 分显温度→目标 level。
+- MonitorCharts：Chart.js 双图（CPU/GPU 温度+fan level），始终可见。
+- ControlButtons：曲线运行时 Manual/Max 弹确认→自动 stop 后再写，失败不盲发。
+- Agent：PID 线性插值、独立分扇、writeGate 串行化、LHM 瞬断重试、worker crash guard。
+- code review 修复：agent_manager 竞态、setInterval→setTimeout、死代码清理、默认点同步。
 
 ## P1：diagnostics 结果纳入回归流程
 
@@ -262,24 +243,6 @@
 - 控制效果异常时可以从日志看到写入和回读过程。
 - 日志不会无限增长。
 
-## P3：键盘灯功能
-
-**ROI：低**  
-**原因：不阻塞风扇控制和现代 GUI 主线。**
-
-暂缓内容：
-
-- 读取键盘灯状态。
-- 设置四区颜色。
-- preset 管理。
-- 与旧 OmenMon 键盘图片/资源相关的 UI。
-
-进入条件：
-
-- 风扇控制 GUI 已稳定。
-- Agent 协议已经版本化。
-- 有明确需求再做。
-
 ## P3：GPU power UI
 
 **ROI：低到中**  
@@ -315,11 +278,12 @@
 
 ## 推荐近期迭代顺序
 
-1. ~~文档整理与 README 导航。~~ ✅
-2. ~~协议字段冻结与错误码整理。~~ ✅
-3. ~~GUI 最小原型：snapshot + manual/max/program。~~ ✅
-4. ~~GUI 状态保护：禁用重复点击、权限提示、warning 展示。~~ ✅
-5. 默认风扇曲线 GUI。← 下一步
-6. diagnostics smoke 回归命令。
-7. Agent 生命周期、日志和配置持久化。
-8. 托盘、打包、曲线编辑器。
+1. ~~文档整理与 README 导航~~ ✅
+2. ~~协议字段冻结与错误码整理~~ ✅
+3. ~~GUI 最小原型~~ ✅
+4. ~~GUI 状态保护~~ ✅
+5. ~~风扇曲线 GUI~~ ✅
+6. diagnostics smoke 回归命令。← 下一步
+7. 配置持久化（保存手动 level、曲线点、刷新间隔、窗口位置）。
+8. Agent 生命周期健壮性（自动寻址 exe、崩溃恢复、超时、日志）。
+9. 托盘、打包、曲线编辑器。

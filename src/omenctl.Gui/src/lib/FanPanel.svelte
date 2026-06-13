@@ -12,11 +12,18 @@
   <div class="flex items-end gap-4">
     <div>
       <div class="text-[#8b949e] text-[10px] uppercase">Level</div>
-      <div class="font-mono text-4xl font-bold" class:text-[#3fb950]={levelTrusted} class:text-[#d29922]={!levelTrusted}>
-        {level != null ? level : '--'}
+      <div
+        class="font-mono text-4xl font-bold"
+        class:text-[#3fb950]={levelTrusted}
+        class:text-[#d29922]={!levelTrusted}
+      >
+        {level != null ? level : "--"}
       </div>
       {#if !levelTrusted}
-        <span class="text-[#8b949e] border border-[#8b949e] text-[10px] px-1.5 py-0.5 rounded uppercase mt-1 inline-block">untrusted</span>
+        <span
+          class="text-[#8b949e] border border-[#8b949e] text-[10px] px-1.5 py-0.5 rounded uppercase mt-1 inline-block"
+          >untrusted</span
+        >
       {/if}
     </div>
     <div class="flex-1">

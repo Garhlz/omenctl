@@ -2,8 +2,13 @@ import { invoke } from '@tauri-apps/api/core';
 
 export const agentStatus = $state({ value: 'stopped' });
 export const snapshot = $state({ data: null });
+export const curveStatus = $state({ data: null });
 export const isWriting = $state({ value: false });
 export const lastError = $state({ code: '', message: '' });
+
+export function getCurveRunning() {
+  return curveStatus.data?.running ?? false;
+}
 
 export async function invokeTauri(cmd, args = {}) {
   try {

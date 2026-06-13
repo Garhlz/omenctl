@@ -1,6 +1,6 @@
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, atomic::{AtomicU64, Ordering}};
 
 #[derive(Debug, Clone)]
 pub enum AgentStatus {
@@ -16,6 +16,7 @@ pub struct AgentManager {
     stdin: Option<Arc<Mutex<ChildStdin>>>,
     stdout: Option<Arc<Mutex<BufReader<std::process::ChildStdout>>>>,
     status: Arc<Mutex<AgentStatus>>,
+    generation: Arc<AtomicU64>,
 }
 
 impl AgentManager {
@@ -25,13 +26,17 @@ impl AgentManager {
             stdin: None,
             stdout: None,
             status: Arc::new(Mutex::new(AgentStatus::NotStarted)),
+            generation: Arc::new(AtomicU64::new(0)),
         }
     }
 
     pub fn start(&mut self) -> Result<(), String> {
         *self.status.lock().map_err(|e| e.to_string())? = AgentStatus::Starting;
 
-        let (program, args) = resolve_agent_path()?;
+        let (program, args) = resolve_agent_path().map_err(|e| {
+            *self.status.lock().unwrap_or_else(|e| e.into_inner()) = AgentStatus::Error(e.clone());
+            e
+        })?;
 
         let mut cmd = Command::new(&program);
         cmd.args(&args)
@@ -40,7 +45,9 @@ impl AgentManager {
             .stderr(Stdio::piped());
 
         let mut child = cmd.spawn().map_err(|e| {
-            format!("Failed to start agent ({}): {}", program, e)
+            let msg = format!("Failed to start agent ({}): {}", program, e);
+            *self.status.lock().unwrap_or_else(|e| e.into_inner()) = AgentStatus::Error(msg.clone());
+            msg
         })?;
 
         let stdin = child.stdin.take()
@@ -48,9 +55,13 @@ impl AgentManager {
         let stdout = child.stdout.take()
             .ok_or_else(|| "Failed to capture agent stdout".to_string())?;
 
+        // Bump generation so old stderr threads know they're stale
+        let gen = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        let status = self.status.clone();
+        let generation = self.generation.clone();
+
         // Spawn stderr pump
         if let Some(stderr) = child.stderr.take() {
-            let status = self.status.clone();
             std::thread::spawn(move || {
                 let reader = BufReader::new(stderr);
                 for line in reader.lines() {
@@ -60,9 +71,11 @@ impl AgentManager {
                         }
                     }
                 }
-                // Process exited
-                if let Ok(mut s) = status.lock() {
-                    *s = AgentStatus::Stopped;
+                // Process exited — only set Stopped if we're still the current generation
+                if generation.load(Ordering::SeqCst) == gen {
+                    if let Ok(mut s) = status.lock() {
+                        *s = AgentStatus::Stopped;
+                    }
                 }
             });
         }

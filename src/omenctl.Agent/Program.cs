@@ -14,7 +14,7 @@ SensorFusionService sensors = new([
     new LibreHardwareMonitorProvider(),
     new NvmlProvider()
 ]);
-FanCurveService fanCurve = new(controller, SnapshotAsync);
+FanCurveService fanCurve = new(controller, SnapshotAsync, hardwareGate);
 
 while(await Console.In.ReadLineAsync() is { } line)
 {
@@ -64,7 +64,7 @@ async Task<AgentResponse> DispatchAsync(AgentCommand command, CancellationToken 
                 cancellationToken).ConfigureAwait(false)),
             "applyAndReadback" => AgentResponse.Success(await ApplyAndReadbackAsync(command, cancellationToken).ConfigureAwait(false)),
             "startCurve" => AgentResponse.Success(fanCurve.Start(command.Points, command.IntervalSeconds, command.HysteresisC)),
-            "stopCurve" => AgentResponse.Success(fanCurve.Stop()),
+            "stopCurve" => AgentResponse.Success(await fanCurve.StopAsync().ConfigureAwait(false)),
             "curveStatus" => AgentResponse.Success(fanCurve.Status()),
             _ => AgentResponse.Failure("unknown_command", $"Unknown command: {command.Cmd}")
         };

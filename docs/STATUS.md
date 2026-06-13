@@ -131,25 +131,23 @@ Agent 已支持 JSON over stdio 的基本调度骨架。
 
 ## 6. 已完成：风扇曲线
 
-已完成实验性风扇曲线命令：
+实验性风扇曲线已实现并持续迭代优化。
 
-- `startCurve`
-- `curveStatus`
-- `stopCurve`
+曲线命令：`startCurve` / `curveStatus` / `stopCurve`。
 
-当前策略：
+2026-06-14 重大升级——PID 插值 + 独立分扇：
 
-- 按 `max(trustedCpuTemp, trustedGpuTemp)` 选择温度源。
-- 默认使用 `2C` 迟滞，降低降温抖动。
-- 曲线后台循环能按可信温度应用 level。
-- `curveStatus` 已返回：
-  - `hysteresisC`
-  - `tickCount`
-  - `applyCount`
-  - `lastTemperature`
-  - `lastTemperatureSource`
-  - `lastApplied`
-  - `lastError`
+- **线性插值代替阶梯跳变**：风扇 level 是温度的连续函数，在锚点之间平滑过渡。升温时即时响应，降温时通过 `2°C` 迟滞防抖，大幅减少温度波动。
+- **CPU/GPU 独立控制**：CPU 风扇跟随 CPU 温度（LHM），GPU 风扇跟随 GPU 温度（NVML），各自独立查曲线。单方传感器失效时自动用另一方 fallback。
+- **每 tick 必写入**：EC 有倒计时计数器，长时间不写入会退回自动模式。曲线改为每 tick 无条件写入，确保控制不丢失。
+- **LHM 瞬断重试**：传感器读取可能因并发访问失败，首次失败后等 1 秒重试一次，减少误回退 BIOS 温度。
+- **顶层 crash guard**：worker 线程最外层 `try/catch` 确保任何未捕获异常都会将曲线标记为停止并记录错误，不会静默死亡。
+- **writeGate 串行化**：曲线 worker 写入前获取 `hardwareGate`，与 GUI 手动命令互斥，防止并发写 EC。
+
+`curveStatus` 返回：
+- `running`, `points`, `intervalSeconds`, `hysteresisC`
+- `lastTemperature`, `lastTemperatureSource`（格式：`"CPU: LHM (89°C → 70), GPU: NVML (59°C → 45)"`）
+- `lastApplied`, `lastError`, `tickCount`, `applyCount`, `timestamp`
 
 ## 7. 已完成：自动化 diagnostics runner
 
@@ -252,20 +250,28 @@ UI 和 Agent 都应遵守：
 
 2026-06-13 完成 Tauri v2 + Svelte + Tailwind 的 GUI 最小原型：
 
-1. Rust 后端（`src-tauri/`）：`agent_manager.rs` 管理 omenctl 子进程生命周期，通过 JSON over stdio 通信；`commands.rs` 暴露 4 个 Tauri IPC 命令（start_agent, stop_agent, send_command, agent_status）。
-2. Svelte 前端（`src/`）：AgentClient 顶层布局、SensorCard 传感器卡片（温度颜色插值）、FanPanel 风扇面板（RPM 不可信时显示说明文字）、ControlButtons 控制按钮组、WarningBanner 警告横幅、RawJsonPanel JSON 调试面板。
-3. 3 秒轮询 snapshot，写入命令期间按钮禁用防止并发，写入后自动刷新。
+1. Rust 后端：`agent_manager.rs` 管理子进程（代数计数器防竞态、错误状态恢复、Scoop dotnet 发现）；`commands.rs` 暴露 4 个 Tauri IPC 命令。
+2. Svelte 前端 9 个组件：AgentClient（递归 setTimeout 防堆积）、MonitorCharts（CPU/GPU 双图）、SensorCard（温度颜色插值）、FanPanel、ControlButtons（曲线互斥确认）、CurvePanel（PID 曲线控制 + 状态展示）、WarningBanner、RawJsonPanel。
+3. 3 秒轮询 snapshot + curveStatus，写入后即时刷新，写入期间按钮禁用。
 4. `make.cmd` 增加 `gui-run`、`gui-build`、`gui-publish-agent`。
-5. LHM 新增系统内存（`IsMemoryEnabled` + `AddMemorySamples`）读取。
+5. LHM 新增系统内存；Chart.js + date-fns 实时温度/fan level 图表。
 
-已验证：snapshot 显示正确、temperature 颜色插值、Manual/Max/Power/Silent 写入及回读、warnings 中文映射、RPM unavailable 说明文字。
+## 11. 已完成：风扇曲线 GUI + PID 控制
 
-## 11. 当前遗留问题
+2026-06-14 完成：
 
-- 风扇曲线 GUI 尚未接入（startCurve / curveStatus / stopCurve）。
+- **CurvePanel**：曲线启动/停止/状态展示，柱状预览曲线点，CPU/GPU 分显温度→目标 level。
+- **MonitorCharts**：Chart.js 实时折线图，CPU 和 GPU 各自一图（温度 + fan level），始终可见。
+- **ControlButtons**：曲线运行时 Manual/Max 弹确认→自动 stopCurve→再写入手动值，stopCurve 失败不再盲发。
+- **Agent 层升级**：PID 线性插值、独立分扇、writeGate 串行化、LHM 瞬断重试、worker crash guard。
+- **code review 修复**：agent_manager 竞态、setInterval 堆积、死代码清理、默认点同步。
+
+## 12. 当前遗留问题
+
 - 风扇曲线点位还需要根据长期 diagnostics 数据调优。
 - `Power/Silent` 的最终语义尚未确定。
+- 曲线编辑器（拖拽调点、hysteresis/interval 调节、preset 导入导出）留待 P2。
 - 键盘灯功能暂不做。
 - GPU power UI 暂不做。
 - 新 HP 机型适配暂不做。
-- 更完整的打包、签名、开机自启、托盘常驻仍待后续阶段规划。
+- 打包、签名、托盘常驻仍待后续阶段规划。
