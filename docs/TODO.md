@@ -1,254 +1,360 @@
-# TODO：omenctl 现代化路线
+# TODO：omenctl 后续开发路径
 
-## 目标
+本文档只记录后续要做的工作。已经完成的迁移、诊断和验证结论请见 `STATUS.md`；稳定需求与验收标准请见 `requirement.md`。
 
-把当前项目整理成面向 HP Omen 16 / 8BAB 的现代本地 Agent `omenctl`。
+排序原则：
 
-核心原则：
+- **优先级**：P0 必须做，P1 高价值，P2 可延后，P3 暂缓。
+- **ROI**：综合考虑用户可见收益、实现成本、风险降低程度和是否阻塞后续工作。
+- **开发顺序**：默认按本文档顺序推进；除非发现新的硬件风险，否则不要先做低 ROI 的大功能。
 
-- 风扇控制复用 OmenMon 已验证有效的 BIOS / EC 路径。
-- 温度、使用率、功耗、频率等监控数据使用 LibreHardwareMonitor / NVML。
-- 先完成 Agent 与数据可信度，再在此基础上推进现代 GUI。
-- 旧 WinForms / CLI / .NET Framework 代码已清理，不再作为维护目标。
+## P0：合并前基线与文档整理
 
-## 当前状态
+**ROI：极高**  
+**目标：防止继续开发时丢失当前已验证能力。**
 
-已完成：
+任务：
 
-- 新增 `omenctl.sln`。
-- 新增 `.NET 10` 项目：
-  - `src/omenctl.Core`
-  - `src/omenctl.Sensors`
-  - `src/omenctl.Agent`
-- `make build` 已切到现代 Agent 构建。
-- Agent 已支持 JSON over stdio 的基本调度骨架。
-- `snapshot` 可返回合法 JSON。
-- 已抽出最小真实 `OmenFanController`：
-  - BIOS fan level / max / mode 走 HP BIOS WMI。
-  - EC rate / rpm / raw / manual / countdown 走 WinRing0 I/O port 路径。
-  - 不依赖 WinForms、旧 CLI、`App.Exit` 或弹窗错误处理。
-- 已新增实验性风扇曲线命令：
-  - `startCurve`
-  - `curveStatus`
-  - `stopCurve`
-  - 当前按 `max(trustedCpuTemp, trustedGpuTemp)` 选择温度源，并用迟滞阈值降低降温抖动。
-- 非管理员运行时：
-  - `snapshot` 返回降级 JSON。
-  - `setManual` / `setMax` / `setProgram` 返回 `hardware_access_denied`。
-- 8BAB 诊断确认：
-  - fan level 控制有效
-  - `setManual 45/45` 和 `35/35` 能读回
-  - `setMax` 能拉高 fan level
-  - 风扇曲线后台循环能按可信温度应用 level
-  - RPM 不可信
-  - GPTM GPU 温度不可信
-  - CPU 温度需要 BIOS fallback 或外部传感器来源
-- 已清理旧 OmenMon WinForms / CLI / .NET Framework 项目和旧 UI 资源。
-- 已完成现代命名迁移：
-  - `omenctl.sln`
-  - `src/omenctl.Core`
-  - `src/omenctl.Sensors`
-  - `src/omenctl.Agent`
-- 已接入真实传感器来源：
-  - LibreHardwareMonitor 提供 CPU 温度/负载
-  - NVML 提供 GPU 温度/负载/显存占用
-  - `raw.sensors` 附带 GPU 功耗与频率
-
-## 已完成阶段：真实风扇控制
-
-代码路径已接入并在 8BAB 上完成基础验证。
-
-已完成：
-
-- BIOS COM/WMI 能读写 fan level / max / fan mode。
-- EC 驱动能读 raw EC 字段。
-- `setManual 45/45`、`setManual 35/35` 和 `setMax` 已通过 `applyAndReadback` 验证。
-- 所有 Agent 写入通过串行 gate，避免并发写 EC / BIOS。
-- `Power/Silent` 暂时保留为实验性 BIOS fan mode 快捷映射；旧 OmenMon 的完整 Program 语义应由新的 fan curve 替代。
-
-验收标准：
-
-- `{"cmd":"snapshot"}` 能读到 product、fan level、BIOS fan level。
-- `{"cmd":"setManual","cpuLevel":45,"gpuLevel":45}` 能实际写入并读回。
-- `applyAndReadback` 能记录 `0s/1s/3s/5s/15s` 的读回结果。
-- 出错时只返回 JSON error，不弹窗、不退出整个进程。
-
-## 已完成阶段：命名迁移与传感器接入
-
-当前阶段目标已经完成，OmenMon 不再承担主传感器来源职责。
-
-已完成：
-
-1. 全面将现代代码和文档改名为 `omenctl`。
-2. 在 `omenctl.Sensors` 接入 LibreHardwareMonitor。
-3. 已读取：
-   - CPU package temperature
-   - CPU load
-   - GPU temperature
-   - GPU load
-   - SSD temperature
-4. 已接入 NVML。
-5. 已优先使用 NVML 读取 NVIDIA GPU：
-   - temperature
-   - utilization
-   - memory usage
-   - power
-   - clocks
-6. 已建立 `SensorFusionService`：
-   - CPU 温度优先 LHM，失败再 BIOS fallback。
-   - GPU 温度优先 NVML，其次 LHM。
-   - OmenMon `GPTM<=5C` 标记为 suspect。
-   - `RPM=0 && level>0` 标记为 `rpm_unavailable`。
-7. 已将风扇曲线温度源切到 `max(trustedCpuTemp, trustedGpuTemp)`。
-8. 已给风扇曲线增加默认 `2C` 迟滞与状态计数，便于观察是否频繁跳档。
-
-验收标准：
-
-- `snapshot.temps.cpu` 有可信来源。
-- `snapshot.loads.cpu` 有可信来源。
-- `snapshot.temps.gpu` 优先来自 NVML 或 LHM。
-- 不再把 `GPTM=1C` 展示为正常 GPU 温度。
-- `curveStatus` 在管理员场景下应能显示真实温度来源。
-
-## 已完成阶段：自动化验证 runner
-
-已完成：
-
-1. 在 `diagnostics/` 下新增现代验证 CLI / test runner，专门面向 `omenctl`。
-2. 已实现三类自动化采样命令：
+1. 将本文档、`requirement.md`、`STATUS.md` 放入 `docs/`。
+2. README 只保留项目简介、构建命令、最小使用示例和文档导航。
+3. 确认 `.\make.cmd build` 成功。
+4. 执行一次 diagnostics 基线：
    - `snapshot-log`
    - `apply-readback-batch`
    - `curve-watch`
-3. runner 自动拉起 `omenctl` 子进程，通过 JSON over stdio 协议发送命令并记录响应。
-4. 输出格式已统一为：
-   - 原始 `jsonl` 采样日志
-   - 控制台 summary
-5. `apply-readback-batch` 已覆盖：
-   - `setManual 35/35`
-   - `setManual 45/45`
-   - `setManual 50/50`
-   - `setMax`
-6. `curve-watch` 已记录：
-   - `lastTemperature`
-   - `lastTemperatureSource`
-   - `lastApplied`
-   - `tickCount`
-   - `applyCount`
-   - 是否出现 `lastError`
+5. 将最新结果保存到 `diagnostics/8BAB/`。
 
-验收标准：
+验收：
 
-- `.\make.cmd build` 能构建 `omenctl` 主线与 diagnostics runner。
-- runner 能自动启动 `omenctl` 并完成一次 `snapshot-log`。
-- runner 能批量执行 `apply-readback-batch` 并产出可复查的 `jsonl`。
-- runner 能执行 `curve-watch` 并输出 `tickCount/applyCount` 变化。
-- 采样结果可直接写入 `diagnostics/8BAB/` 之类的设备目录中长期保存。
+- 文档职责清晰：需求、TODO、状态归档不互相重复。
+- 构建成功。
+- 有一份可回看的 8BAB 最新诊断基线。
 
-## 下一阶段：GUI 集成
+## P0：Agent 协议稳定化 ✅
 
-要做：
+**ROI：极高**
+**目标：让未来 GUI 可以放心依赖 Agent，而不是边写 GUI 边改协议。**
+**状态：已完成（2026-06-13）**
 
-1. 开始构建 `omenctl` 的现代 GUI 主线。
-2. 第一阶段只围绕已有 Agent 能力做一层可用前端，不重新发明控制逻辑。
-3. GUI 首批功能优先覆盖：
-   - 设备信息与 `snapshot` 展示
-   - CPU/GPU 温度、负载、风扇 level 展示
-   - `setManual`
-   - `setMax`
-   - `setProgram`
-   - 风扇曲线启动、状态查看、停止
-4. diagnostics runner 继续保留，作为 GUI 调参与回归验证工具。
-5. 风扇曲线点位细化、迟滞阈值优化、`Power/Silent` 去留先列入后续，不阻塞 GUI 里程碑。
+完成内容：
 
-验收标准：
+- `AgentResponse` 增加 `protocolVersion`（`"1.0"`）和 `agentVersion`（从程序集版本读取）。
+- 新建 `docs/protocol.md`：完整 JSON schema、命令参考、8 个错误码目录、版本策略。
+- `FanCurveStatus` 统一显式 `[JsonPropertyName]`。
+- `docs/requirement.md` 补充版本字段要求和 `invalid_apply_command` 错误码。
+- 向后兼容验证通过：diagnostics runner 三个命令均正常运行。
 
-- 能从 GUI 读取并展示一次完整 `snapshot`。
-- 能从 GUI 触发 `setManual`、`setMax` 并看到回读结果。
-- 能从 GUI 启动曲线并展示 `curveStatus` 的关键字段。
-- GUI 不直接操作 BIOS / EC，只通过 `omenctl` Agent 协议通信。
+## P0：最小 GUI 原型
 
-## Agent 协议
+**ROI：极高**  
+**目标：尽快获得可用前端，替代旧 OmenMon GUI 的核心体验。**
 
-输入：每行一个 JSON 命令。
+第一版不要做复杂曲线编辑器，不要先做托盘常驻，不要先做漂亮主题。先做“能看、能点、能回读”。
 
-```json
-{"cmd":"snapshot"}
-{"cmd":"setAuto","biosMode":"Default"}
-{"cmd":"setMax"}
-{"cmd":"setManual","cpuLevel":45,"gpuLevel":45}
-{"cmd":"setProgram","name":"Power"}
-{"cmd":"applyAndReadback","command":{"cmd":"setManual","cpuLevel":45,"gpuLevel":45},"delays":[0,1,3,5,15]}
-{"cmd":"startCurve","intervalSeconds":5,"hysteresisC":2,"points":[{"temp":45,"cpuLevel":35,"gpuLevel":35},{"temp":55,"cpuLevel":45,"gpuLevel":45},{"temp":65,"cpuLevel":50,"gpuLevel":50}]}
-{"cmd":"curveStatus"}
-{"cmd":"stopCurve"}
-```
+首批功能：
 
-输出：每行一个 JSON 响应。
+1. 启动并管理 `omenctl` Agent 子进程。
+2. 发送 `snapshot` 并展示：
+   - product
+   - deviceProfile
+   - CPU/GPU 温度
+   - CPU/GPU load
+   - GPU power / clocks / memory usage
+   - CPU/GPU fan level
+   - warnings
+3. 支持按钮：
+   - `Manual 35/35`
+   - `Manual 45/45`
+   - `Manual 50/50`
+   - `Max`
+   - `Power`
+   - `Silent`
+4. 支持 raw JSON 面板，便于调试。
+5. 所有写入后自动刷新一次 `snapshot`。
+6. GUI 不直接引用 Core 硬件控制类型，只通过 JSON over stdio 访问 Agent。
 
-```json
-{"ok":true,"data":{}}
-{"ok":false,"error":{"code":"not_implemented","message":"..."}}
-```
+验收：
 
-统一 snapshot 至少包含：
+- GUI 可以完整展示一次 `snapshot`。
+- 点击 `Manual 45/45` 后能看到回读结果。
+- 点击 `Max` 后能看到 fan level 变化。
+- warnings 能被明显展示。
+- Agent 崩溃或权限不足时 GUI 能给出清楚错误提示。
 
-- `product`
-- `deviceProfile`
-- `temps`
-- `loads`
-- `fans`
-- `biosFan`
-- `warnings`
-- `raw`
+## P0：GUI 安全保护与状态反馈
 
-## 8BAB 设备规则
+**ROI：高**  
+**目标：避免 GUI 误导用户或重复触发危险操作。**
 
-当前固定规则：
+任务：
 
-- `fanLevelReliable = true`
-- `fanControlReliable = true`
-- `fanRpmReliable = false`
-- `omenGpuTempReliable = false`
-- `omenFanRateInterpretation = raw`
-- `rawFanMode = 0x44`
+1. 写入命令执行期间禁用相关按钮。
+2. 避免重复点击造成并发命令。
+3. 明确显示 Agent 连接状态：
+   - 未启动
+   - 运行中
+   - 权限不足
+   - 硬件不可用
+   - 曲线运行中
+4. 对 `hardware_access_denied` 给出“请以管理员权限运行”的提示。
+5. 对 RPM 不可信、GPU EC 温度不可信等 warning 使用说明性文本，而不是直接显示异常数字。
+6. 加一个“复制当前快照 JSON”按钮。
 
-UI 和 Agent 都应遵守：
+验收：
 
-- fan level 是主要反馈。
-- RPM 默认不可用。
-- rate 只作为 raw 字段展示，不解释为真实速度。
-- GPTM 不作为 GPU 温度。
-- CPU 温度可用 BIOS fallback，但更推荐 LHM。
+- 快速连点按钮不会发出重叠写入。
+- 非管理员启动时 GUI 不崩溃，并能展示降级 snapshot。
+- 不会把 RPM=0 / GPTM=1C 作为正常状态误导用户。
 
-## 构建与运行
+## P1：风扇曲线 GUI MVP
 
-现代主线：
+**ROI：高**  
+**目标：把已经可运行的曲线能力做成可用界面。**
 
-```powershell
-.\make.cmd build
-.\make.cmd agent-run
-```
+首版只做固定模板，不做完整编辑器。
 
-注意：
+任务：
 
-- 当前 `make.cmd` 优先使用 Scoop 安装的 `.NET 10 SDK`。
-- 如果 `dotnet` 路径异常，先检查：
+1. 提供一个默认曲线模板：
+   - 45C -> 35/35
+   - 55C -> 45/45
+   - 65C -> 50/50
+2. 提供启动、停止、刷新状态按钮。
+3. 展示：
+   - 是否运行
+   - 最近温度
+   - 温度来源
+   - 最近应用点
+   - tickCount
+   - applyCount
+   - lastError
+4. 曲线运行时允许用户一键停止。
+5. 曲线运行时避免用户同时乱点手动模式；必要时弹出确认。
 
-```powershell
-dotnet --list-sdks
-```
+验收：
 
-## 暂不做
+- GUI 可以启动默认曲线。
+- `curveStatus` 字段可视化。
+- 曲线停止后状态清楚。
+- 出现 `lastError` 时 GUI 有明显提示。
 
-- 暂不重写 Tauri/Web UI。
-- 暂不扫描新的 HP EC 温度寄存器。
-- 暂不实现键盘灯功能。
-- 暂不处理 GPU power UI。
+## P1：diagnostics 结果纳入回归流程
 
-## 已完成清理
+**ROI：高**  
+**目标：让每次修改都能证明没有破坏 8BAB 基线能力。**
 
-- 旧 WinForms GUI 已删除。
-- 旧 CLI 已删除。
-- 旧 .NET Framework 项目文件已删除。
-- 旧 UI 图片、字体、图标资源已删除。
-- 保留 `Resources/Driver.sys.gz` 和必要的来源说明。
+任务：
+
+1. 将 diagnostics runner 的常用命令写入 README。
+2. 为 `apply-readback-batch` 增加更清晰的 summary：
+   - requested level
+   - readback level
+   - warnings
+   - 是否通过
+3. 为 `curve-watch` 增加关键统计：
+   - 温度源分布
+   - 应用次数
+   - 是否出现错误
+   - 是否频繁跳档
+4. 增加一个 `diag-run smoke` 命令，串联最小回归流程。
+5. 建议每次 GUI 或 Agent 控制逻辑修改后都跑一次 smoke。
+
+验收：
+
+- 一条命令可以跑完最小回归。
+- 输出能快速判断 setManual / setMax / curve 是否仍然可用。
+- 新日志能长期保存到 `diagnostics/8BAB/`。
+
+## P1：Agent 生命周期与 GUI 集成细节
+
+**ROI：中高**  
+**目标：让 GUI 不只是 demo，而是日常可用。**
+
+任务：
+
+1. GUI 自动寻找或启动 `omenctl.exe`。
+2. Agent 退出时 GUI 自动提示并允许重启。
+3. GUI 退出时正确停止子进程。
+4. 增加超时机制，避免某个命令卡住整个界面。
+5. 将 Agent stdout/stderr 日志保存到用户目录或项目日志目录。
+6. 增加“打开日志目录”入口。
+
+验收：
+
+- Agent 崩溃后 GUI 能恢复。
+- 硬件命令超时时 GUI 不假死。
+- 日志能用于复现问题。
+
+## P1：配置持久化
+
+**ROI：中高**  
+**目标：保存用户常用设置，减少每次手动重配。**
+
+任务：
+
+1. 保存最近使用的手动 fan level。
+2. 保存默认曲线点。
+3. 保存 GUI 刷新间隔。
+4. 保存是否显示 raw JSON。
+5. 保存窗口大小和位置。
+6. 配置文件放在用户目录，避免污染仓库。
+
+验收：
+
+- 重启 GUI 后能恢复上次常用设置。
+- 配置损坏时能回退默认值，不影响 Agent 启动。
+
+## P2：曲线编辑器与策略调优
+
+**ROI：中等**  
+**目标：在 GUI MVP 稳定后，再提高可调性。**
+
+任务：
+
+1. 支持编辑曲线点。
+2. 校验温度升序和 level 范围。
+3. 支持导入/导出曲线 preset。
+4. 支持调整 hysteresisC 和 intervalSeconds。
+5. 基于 diagnostics 结果优化默认曲线。
+6. 研究是否需要按 AC / battery 分开策略。
+
+验收：
+
+- 用户能安全编辑曲线。
+- 无效曲线不会发送给 Agent。
+- 默认曲线比当前实验值更适合日常使用。
+
+## P2：托盘与后台常驻
+
+**ROI：中等**  
+**目标：把 GUI 从调试工具推进到日用工具。**
+
+任务：
+
+1. 托盘图标。
+2. 最小化到托盘。
+3. 托盘菜单：
+   - Snapshot
+   - Manual 45/45
+   - Max
+   - Start Curve
+   - Stop Curve
+   - Exit
+4. 曲线运行时托盘显示状态。
+5. 退出时提示是否停止曲线。
+
+验收：
+
+- 可以常驻后台。
+- 常用操作不必打开主窗口。
+- 退出行为明确，不误留后台控制。
+
+## P2：打包与发布
+
+**ROI：中等**  
+**目标：降低自己日用和后续分发成本。**
+
+任务：
+
+1. 发布 self-contained x64 build。
+2. 生成 release zip。
+3. 包含：
+   - `omenctl.exe`
+   - GUI exe
+   - driver resource
+   - license
+   - README
+4. 写清楚管理员权限要求。
+5. 考虑是否需要应用清单请求管理员权限。
+6. 暂不急于签名；先保证构建可复现。
+
+验收：
+
+- 新机器上解压即可运行。
+- README 能说明如何以管理员权限启动。
+- Release 包不包含源码临时文件和 diagnostics 历史日志。
+
+## P2：更完整日志系统
+
+**ROI：中等**  
+**目标：降低排查硬件问题的成本。**
+
+任务：
+
+1. 为 Agent 增加结构化日志。
+2. 为每次写入记录：
+   - command
+   - input
+   - apply result
+   - snapshot after apply
+   - warnings
+3. 为曲线循环记录关键 tick。
+4. 日志脱敏并限制大小。
+5. GUI 提供导出日志按钮。
+
+验收：
+
+- 控制效果异常时可以从日志看到写入和回读过程。
+- 日志不会无限增长。
+
+## P3：键盘灯功能
+
+**ROI：低**  
+**原因：不阻塞风扇控制和现代 GUI 主线。**
+
+暂缓内容：
+
+- 读取键盘灯状态。
+- 设置四区颜色。
+- preset 管理。
+- 与旧 OmenMon 键盘图片/资源相关的 UI。
+
+进入条件：
+
+- 风扇控制 GUI 已稳定。
+- Agent 协议已经版本化。
+- 有明确需求再做。
+
+## P3：GPU power UI
+
+**ROI：低到中**  
+**原因：硬件风险与语义复杂度高，且当前目标是风扇控制。**
+
+暂缓内容：
+
+- GPU power preset。
+- PPAB / CustomTGP UI。
+- 与 BIOS 写入相关的高风险设置。
+
+进入条件：
+
+- 有明确诊断数据证明需要。
+- 先在 diagnostics runner 中实现验证命令，再考虑 GUI。
+
+## P3：多设备支持
+
+**ROI：低**  
+**原因：当前项目定位是 HP Omen 16 / 8BAB，泛化会显著增加测试成本。**
+
+暂缓内容：
+
+- 自动扫描并适配更多 HP Omen 型号。
+- 新 EC register 映射。
+- 通用设备规则 UI。
+
+进入条件：
+
+- 至少有第二台设备的 diagnostics 数据。
+- 新设备有独立 `DeviceProfile`。
+- 不影响 8BAB 默认路径。
+
+## 推荐近期迭代顺序
+
+1. 文档整理与 README 导航。
+2. 协议字段冻结与错误码整理。
+3. GUI 最小原型：snapshot + manual/max/program。
+4. GUI 状态保护：禁用重复点击、权限提示、warning 展示。
+5. 默认风扇曲线 GUI。
+6. diagnostics smoke 回归命令。
+7. Agent 生命周期、日志和配置持久化。
+8. 托盘、打包、曲线编辑器。

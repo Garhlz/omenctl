@@ -83,7 +83,9 @@ scoop install dotnet-sdk
 - `snapshot-log` 非管理员也可运行，但可能看到 `bios_unavailable` 等降级 warning。
 - `apply-readback-batch` 和 `curve-watch` 若要验证真实写入效果，建议以管理员权限运行。
 
-## Agent 协议草案
+## Agent 协议
+
+完整的协议规范、JSON schema、命令参考、错误码目录和版本策略见 [`docs/protocol.md`](docs/protocol.md)。
 
 Agent 从 `stdin` 读取一行 JSON 命令，向 `stdout` 输出一行 JSON 响应。
 

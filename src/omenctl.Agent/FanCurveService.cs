@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using OmenCtl.Core;
 
 namespace OmenCtl.Agent;
@@ -253,17 +254,17 @@ internal sealed record FanCurveSettings(
     int HysteresisC);
 
 internal sealed record FanCurveStatus(
-    bool Running,
-    IReadOnlyList<FanCurvePoint> Points,
-    int IntervalSeconds,
-    int HysteresisC,
-    double? LastTemperature,
-    string? LastTemperatureSource,
-    FanCurvePoint? LastApplied,
-    string? LastError,
-    int TickCount,
-    int ApplyCount,
-    DateTimeOffset Timestamp)
+    [property: JsonPropertyName("running")] bool Running,
+    [property: JsonPropertyName("points")] IReadOnlyList<FanCurvePoint> Points,
+    [property: JsonPropertyName("intervalSeconds")] int IntervalSeconds,
+    [property: JsonPropertyName("hysteresisC")] int HysteresisC,
+    [property: JsonPropertyName("lastTemperature")] double? LastTemperature,
+    [property: JsonPropertyName("lastTemperatureSource")] string? LastTemperatureSource,
+    [property: JsonPropertyName("lastApplied")] FanCurvePoint? LastApplied,
+    [property: JsonPropertyName("lastError")] string? LastError,
+    [property: JsonPropertyName("tickCount")] int TickCount,
+    [property: JsonPropertyName("applyCount")] int ApplyCount,
+    [property: JsonPropertyName("timestamp")] DateTimeOffset Timestamp)
 {
     public static FanCurveStatus Stopped() => new(false, [], 0, 0, null, null, null, null, 0, 0, DateTimeOffset.Now);
 
