@@ -8,7 +8,7 @@
 
 - 风扇控制复用 OmenMon 已验证有效的 BIOS / EC 路径。
 - 温度、使用率、功耗、频率等监控数据使用 LibreHardwareMonitor / NVML。
-- UI 暂时不重写，先把 Agent 和数据可信度做好。
+- 先完成 Agent 与数据可信度，再在此基础上推进现代 GUI。
 - 旧 WinForms / CLI / .NET Framework 代码已清理，不再作为维护目标。
 
 ## 当前状态
@@ -31,7 +31,7 @@
   - `startCurve`
   - `curveStatus`
   - `stopCurve`
-  - 当前按 `max(trustedCpuTemp, trustedGpuTemp)` 选择温度源。
+  - 当前按 `max(trustedCpuTemp, trustedGpuTemp)` 选择温度源，并用迟滞阈值降低降温抖动。
 - 非管理员运行时：
   - `snapshot` 返回降级 JSON。
   - `setManual` / `setMax` / `setProgram` 返回 `hardware_access_denied`。
@@ -100,6 +100,7 @@
    - OmenMon `GPTM<=5C` 标记为 suspect。
    - `RPM=0 && level>0` 标记为 `rpm_unavailable`。
 7. 已将风扇曲线温度源切到 `max(trustedCpuTemp, trustedGpuTemp)`。
+8. 已给风扇曲线增加默认 `2C` 迟滞与状态计数，便于观察是否频繁跳档。
 
 验收标准：
 
@@ -109,14 +110,62 @@
 - 不再把 `GPTM=1C` 展示为正常 GPU 温度。
 - `curveStatus` 在管理员场景下应能显示真实温度来源。
 
-## 下一阶段：稳定性与策略校准
+## 已完成阶段：自动化验证 runner
+
+已完成：
+
+1. 在 `diagnostics/` 下新增现代验证 CLI / test runner，专门面向 `omenctl`。
+2. 已实现三类自动化采样命令：
+   - `snapshot-log`
+   - `apply-readback-batch`
+   - `curve-watch`
+3. runner 自动拉起 `omenctl` 子进程，通过 JSON over stdio 协议发送命令并记录响应。
+4. 输出格式已统一为：
+   - 原始 `jsonl` 采样日志
+   - 控制台 summary
+5. `apply-readback-batch` 已覆盖：
+   - `setManual 35/35`
+   - `setManual 45/45`
+   - `setManual 50/50`
+   - `setMax`
+6. `curve-watch` 已记录：
+   - `lastTemperature`
+   - `lastTemperatureSource`
+   - `lastApplied`
+   - `tickCount`
+   - `applyCount`
+   - 是否出现 `lastError`
+
+验收标准：
+
+- `.\make.cmd build` 能构建 `omenctl` 主线与 diagnostics runner。
+- runner 能自动启动 `omenctl` 并完成一次 `snapshot-log`。
+- runner 能批量执行 `apply-readback-batch` 并产出可复查的 `jsonl`。
+- runner 能执行 `curve-watch` 并输出 `tickCount/applyCount` 变化。
+- 采样结果可直接写入 `diagnostics/8BAB/` 之类的设备目录中长期保存。
+
+## 下一阶段：GUI 集成
 
 要做：
 
-1. 在管理员场景下持续验证风扇曲线后台循环。
-2. 观察 `Power/Silent` 是否仍需保留为兼容命令。
-3. 根据 8BAB 实测结果微调默认曲线点。
-4. 视需要补充更多存储、主板或功耗观测项。
+1. 开始构建 `omenctl` 的现代 GUI 主线。
+2. 第一阶段只围绕已有 Agent 能力做一层可用前端，不重新发明控制逻辑。
+3. GUI 首批功能优先覆盖：
+   - 设备信息与 `snapshot` 展示
+   - CPU/GPU 温度、负载、风扇 level 展示
+   - `setManual`
+   - `setMax`
+   - `setProgram`
+   - 风扇曲线启动、状态查看、停止
+4. diagnostics runner 继续保留，作为 GUI 调参与回归验证工具。
+5. 风扇曲线点位细化、迟滞阈值优化、`Power/Silent` 去留先列入后续，不阻塞 GUI 里程碑。
+
+验收标准：
+
+- 能从 GUI 读取并展示一次完整 `snapshot`。
+- 能从 GUI 触发 `setManual`、`setMax` 并看到回读结果。
+- 能从 GUI 启动曲线并展示 `curveStatus` 的关键字段。
+- GUI 不直接操作 BIOS / EC，只通过 `omenctl` Agent 协议通信。
 
 ## Agent 协议
 
@@ -129,7 +178,7 @@
 {"cmd":"setManual","cpuLevel":45,"gpuLevel":45}
 {"cmd":"setProgram","name":"Power"}
 {"cmd":"applyAndReadback","command":{"cmd":"setManual","cpuLevel":45,"gpuLevel":45},"delays":[0,1,3,5,15]}
-{"cmd":"startCurve","intervalSeconds":5,"points":[{"temp":45,"cpuLevel":35,"gpuLevel":35},{"temp":55,"cpuLevel":45,"gpuLevel":45},{"temp":65,"cpuLevel":50,"gpuLevel":50}]}
+{"cmd":"startCurve","intervalSeconds":5,"hysteresisC":2,"points":[{"temp":45,"cpuLevel":35,"gpuLevel":35},{"temp":55,"cpuLevel":45,"gpuLevel":45},{"temp":65,"cpuLevel":50,"gpuLevel":50}]}
 {"cmd":"curveStatus"}
 {"cmd":"stopCurve"}
 ```
