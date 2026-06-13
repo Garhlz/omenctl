@@ -1,0 +1,11 @@
+# Omen Agent
+# Git Ignored Files
+
+# Build Output
+.dotnet/
+src/*/bin/
+src/*/obj/
+
+# Local hardware diagnostics
+diagnostics/
+log-*
