@@ -12,7 +12,9 @@ internal sealed class FanCurveService
     private Task? worker;
     private FanCurveSettings? settings;
     private FanCurveStatus status = FanCurveStatus.Stopped();
-    private (int Cpu, int Gpu)? lastApplied;
+    private FanCurvePoint? lastAppliedPoint;
+    private int tickCount;
+    private int applyCount;
 
     public FanCurveService(
         IHardwareController controller,
@@ -26,16 +28,34 @@ internal sealed class FanCurveService
     {
         FanCurveSettings next = new(
             Points: NormalizePoints(points),
-            IntervalSeconds: Math.Clamp(intervalSeconds ?? 5, 1, 60));
+            IntervalSeconds: Math.Clamp(intervalSeconds ?? 5, 1, 60),
+            HysteresisC: 2);
 
+        return Start(next);
+    }
+
+    public FanCurveStatus Start(IReadOnlyList<FanCurvePoint>? points, int? intervalSeconds, int? hysteresisC)
+    {
+        FanCurveSettings next = new(
+            Points: NormalizePoints(points),
+            IntervalSeconds: Math.Clamp(intervalSeconds ?? 5, 1, 60),
+            HysteresisC: Math.Clamp(hysteresisC ?? 2, 0, 10));
+
+        return Start(next);
+    }
+
+    private FanCurveStatus Start(FanCurveSettings next)
+    {
         Stop();
 
         CancellationTokenSource source = new();
         lock(gate)
         {
             settings = next;
-            status = FanCurveStatus.CreateRunning(next, null, null, null, null);
-            lastApplied = null;
+            status = FanCurveStatus.CreateRunning(next, null, null, null, null, 0, 0);
+            lastAppliedPoint = null;
+            tickCount = 0;
+            applyCount = 0;
             cts = source;
             worker = Task.Run(() => RunAsync(source.Token));
             return status;
@@ -52,7 +72,7 @@ internal sealed class FanCurveService
             task = worker;
             cts = null;
             worker = null;
-            lastApplied = null;
+            lastAppliedPoint = null;
         }
 
         if(source is not null)
@@ -87,19 +107,24 @@ internal sealed class FanCurveService
 
             try
             {
+                tickCount++;
                 HardwareSnapshot currentSnapshot = await snapshot(cancellationToken).ConfigureAwait(false);
                 SensorValue? sensor = SelectTemperature(currentSnapshot);
                 if(sensor?.Value is null)
                 {
-                    UpdateStatus(current, null, null, null, "No trusted temperature source is available.");
+                    UpdateStatus(current, null, null, lastAppliedPoint, "No trusted temperature source is available.");
                 }
                 else
                 {
-                    FanCurvePoint target = SelectPoint(current.Points, sensor.Value.Value);
-                    if(lastApplied is null || lastApplied.Value.Cpu != target.CpuLevel || lastApplied.Value.Gpu != target.GpuLevel)
+                    FanCurvePoint target = SelectPoint(current.Points, sensor.Value.Value, current.HysteresisC, lastAppliedPoint);
+                    if(lastAppliedPoint is null
+                        || lastAppliedPoint.CpuLevel != target.CpuLevel
+                        || lastAppliedPoint.GpuLevel != target.GpuLevel
+                        || lastAppliedPoint.Temperature != target.Temperature)
                     {
                         await controller.SetManualAsync(target.CpuLevel, target.GpuLevel, cancellationToken).ConfigureAwait(false);
-                        lastApplied = (target.CpuLevel, target.GpuLevel);
+                        lastAppliedPoint = target;
+                        applyCount++;
                     }
 
                     UpdateStatus(current, sensor.Value.Value, sensor.Source, target, null);
@@ -134,7 +159,7 @@ internal sealed class FanCurveService
     {
         lock(gate)
         {
-            status = FanCurveStatus.CreateRunning(settings, temperature, source, applied, error);
+            status = FanCurveStatus.CreateRunning(settings, temperature, source, applied, error, tickCount, applyCount);
         }
     }
 
@@ -161,18 +186,34 @@ internal sealed class FanCurveService
         return value;
     }
 
-    private static FanCurvePoint SelectPoint(IReadOnlyList<FanCurvePoint> points, double temperature)
+    private static FanCurvePoint SelectPoint(
+        IReadOnlyList<FanCurvePoint> points,
+        double temperature,
+        int hysteresisC,
+        FanCurvePoint? currentApplied)
     {
-        FanCurvePoint selected = points[0];
-        foreach(FanCurvePoint point in points)
+        int baseIndex = 0;
+        for(int index = 0; index < points.Count; index++)
         {
-            if(temperature >= point.Temperature)
-                selected = point;
+            if(temperature >= points[index].Temperature)
+                baseIndex = index;
             else
                 break;
         }
 
-        return selected;
+        if(currentApplied is null)
+            return points[baseIndex];
+
+        int currentIndex = Array.FindIndex(points.ToArray(), point =>
+            point.Temperature == currentApplied.Temperature
+            && point.CpuLevel == currentApplied.CpuLevel
+            && point.GpuLevel == currentApplied.GpuLevel);
+
+        if(currentIndex < 0 || baseIndex >= currentIndex)
+            return points[baseIndex];
+
+        double downshiftThreshold = points[currentIndex].Temperature - hysteresisC;
+        return temperature >= downshiftThreshold ? points[currentIndex] : points[baseIndex];
     }
 
     private static IReadOnlyList<FanCurvePoint> NormalizePoints(IReadOnlyList<FanCurvePoint>? points)
@@ -208,25 +249,31 @@ internal sealed class FanCurveService
 
 internal sealed record FanCurveSettings(
     IReadOnlyList<FanCurvePoint> Points,
-    int IntervalSeconds);
+    int IntervalSeconds,
+    int HysteresisC);
 
 internal sealed record FanCurveStatus(
     bool Running,
     IReadOnlyList<FanCurvePoint> Points,
     int IntervalSeconds,
+    int HysteresisC,
     double? LastTemperature,
     string? LastTemperatureSource,
     FanCurvePoint? LastApplied,
     string? LastError,
+    int TickCount,
+    int ApplyCount,
     DateTimeOffset Timestamp)
 {
-    public static FanCurveStatus Stopped() => new(false, [], 0, null, null, null, null, DateTimeOffset.Now);
+    public static FanCurveStatus Stopped() => new(false, [], 0, 0, null, null, null, null, 0, 0, DateTimeOffset.Now);
 
     public static FanCurveStatus CreateRunning(
         FanCurveSettings settings,
         double? temperature,
         string? source,
         FanCurvePoint? applied,
-        string? error) =>
-        new(true, settings.Points, settings.IntervalSeconds, temperature, source, applied, error, DateTimeOffset.Now);
+        string? error,
+        int tickCount,
+        int applyCount) =>
+        new(true, settings.Points, settings.IntervalSeconds, settings.HysteresisC, temperature, source, applied, error, tickCount, applyCount, DateTimeOffset.Now);
 }

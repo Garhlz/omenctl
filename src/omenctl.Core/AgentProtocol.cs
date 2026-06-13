@@ -12,7 +12,8 @@ public sealed record AgentCommand(
     [property: JsonPropertyName("command")] JsonElement? Command = null,
     [property: JsonPropertyName("delays")] int[]? Delays = null,
     [property: JsonPropertyName("points")] FanCurvePoint[]? Points = null,
-    [property: JsonPropertyName("intervalSeconds")] int? IntervalSeconds = null);
+    [property: JsonPropertyName("intervalSeconds")] int? IntervalSeconds = null,
+    [property: JsonPropertyName("hysteresisC")] int? HysteresisC = null);
 
 public sealed record FanCurvePoint(
     [property: JsonPropertyName("temp")] int Temperature,

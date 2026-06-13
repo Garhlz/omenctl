@@ -63,7 +63,7 @@ async Task<AgentResponse> DispatchAsync(AgentCommand command, CancellationToken 
                 token => SetProgramAsync(command, token),
                 cancellationToken).ConfigureAwait(false)),
             "applyAndReadback" => AgentResponse.Success(await ApplyAndReadbackAsync(command, cancellationToken).ConfigureAwait(false)),
-            "startCurve" => AgentResponse.Success(fanCurve.Start(command.Points, command.IntervalSeconds)),
+            "startCurve" => AgentResponse.Success(fanCurve.Start(command.Points, command.IntervalSeconds, command.HysteresisC)),
             "stopCurve" => AgentResponse.Success(fanCurve.Stop()),
             "curveStatus" => AgentResponse.Success(fanCurve.Status()),
             _ => AgentResponse.Failure("unknown_command", $"Unknown command: {command.Cmd}")

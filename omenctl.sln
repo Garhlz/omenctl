@@ -8,6 +8,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "omenctl.Sensors", "src\omen
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "omenctl.Agent", "src\omenctl.Agent\omenctl.Agent.csproj", "{33333333-3333-4333-8333-333333333333}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "omenctl.Diagnostics", "diagnostics\omenctl.Diagnostics\omenctl.Diagnostics.csproj", "{55555555-5555-4555-8555-555555555555}"
+EndProject
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution
         Debug|x64 = Debug|x64
@@ -26,6 +28,10 @@ Global
         {33333333-3333-4333-8333-333333333333}.Debug|x64.Build.0 = Debug|x64
         {33333333-3333-4333-8333-333333333333}.Release|x64.ActiveCfg = Release|x64
         {33333333-3333-4333-8333-333333333333}.Release|x64.Build.0 = Release|x64
+        {55555555-5555-4555-8555-555555555555}.Debug|x64.ActiveCfg = Debug|x64
+        {55555555-5555-4555-8555-555555555555}.Debug|x64.Build.0 = Debug|x64
+        {55555555-5555-4555-8555-555555555555}.Release|x64.ActiveCfg = Release|x64
+        {55555555-5555-4555-8555-555555555555}.Release|x64.Build.0 = Release|x64
     EndGlobalSection
     GlobalSection(SolutionProperties) = preSolution
         HideSolutionNode = FALSE
