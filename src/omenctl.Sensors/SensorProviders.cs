@@ -47,6 +47,7 @@ public sealed class LibreHardwareMonitorProvider : ISensorProvider
             {
                 IsCpuEnabled = true,
                 IsGpuEnabled = true,
+                IsMemoryEnabled = true,
                 IsMotherboardEnabled = true,
                 IsStorageEnabled = true
             };
@@ -58,6 +59,7 @@ public sealed class LibreHardwareMonitorProvider : ISensorProvider
 
                 AddCpuSamples(samples, hardware);
                 AddGpuSamples(samples, hardware);
+                AddMemorySamples(samples, hardware);
                 AddBoardSamples(samples, hardware);
                 AddStorageSamples(samples, hardware);
 
@@ -140,6 +142,18 @@ public sealed class LibreHardwareMonitorProvider : ISensorProvider
         if(TrySelectSensor(gpuSensors, SensorType.Load, out ISensor? gpuLoad, "GPU Core", "D3D 3D", "GPU Total"))
         {
             samples.Add(ToSample("gpu", gpuLoad!, "LHM", SensorSampleKind.Load));
+        }
+    }
+
+    private static void AddMemorySamples(List<SensorSample> samples, IReadOnlyCollection<IHardware> hardware)
+    {
+        IHardware? memory = hardware.FirstOrDefault(h => h.HardwareType == HardwareType.Memory);
+        if(memory is null)
+            return;
+
+        if(TrySelectSensor(memory.Sensors, SensorType.Load, out ISensor? memoryLoad, "Memory"))
+        {
+            samples.Add(ToSample("memory", memoryLoad!, "LHM", SensorSampleKind.Load));
         }
     }
 

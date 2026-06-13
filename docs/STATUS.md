@@ -248,11 +248,21 @@ UI 和 Agent 都应遵守：
 - GUI 现在可依据 `docs/protocol.md` 完成 mock client，不再需要频繁修改命令名和核心字段名。
 - 协议已有明确的版本策略：字段可增加不可改名，主版本号标记破坏性变更。
 
-## 10. 当前遗留问题
+## 10. 已完成：最小 GUI 原型
 
-这些内容尚未进入高优先级实现：
+2026-06-13 完成 Tauri v2 + Svelte + Tailwind 的 GUI 最小原型：
 
-- 现代 GUI 尚未完成。
+1. Rust 后端（`src-tauri/`）：`agent_manager.rs` 管理 omenctl 子进程生命周期，通过 JSON over stdio 通信；`commands.rs` 暴露 4 个 Tauri IPC 命令（start_agent, stop_agent, send_command, agent_status）。
+2. Svelte 前端（`src/`）：AgentClient 顶层布局、SensorCard 传感器卡片（温度颜色插值）、FanPanel 风扇面板（RPM 不可信时显示说明文字）、ControlButtons 控制按钮组、WarningBanner 警告横幅、RawJsonPanel JSON 调试面板。
+3. 3 秒轮询 snapshot，写入命令期间按钮禁用防止并发，写入后自动刷新。
+4. `make.cmd` 增加 `gui-run`、`gui-build`、`gui-publish-agent`。
+5. LHM 新增系统内存（`IsMemoryEnabled` + `AddMemorySamples`）读取。
+
+已验证：snapshot 显示正确、temperature 颜色插值、Manual/Max/Power/Silent 写入及回读、warnings 中文映射、RPM unavailable 说明文字。
+
+## 11. 当前遗留问题
+
+- 风扇曲线 GUI 尚未接入（startCurve / curveStatus / stopCurve）。
 - 风扇曲线点位还需要根据长期 diagnostics 数据调优。
 - `Power/Silent` 的最终语义尚未确定。
 - 键盘灯功能暂不做。

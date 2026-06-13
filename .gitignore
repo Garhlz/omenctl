@@ -6,6 +6,14 @@
 src/*/bin/
 src/*/obj/
 
+# GUI build output
+src/omenctl.Gui/src-tauri/target/
+src/omenctl.Gui/node_modules/
+src/omenctl.Gui/dist/
+src/omenctl.Gui/bin/
+
 # Local hardware diagnostics
 diagnostics/
 log-*
+
+.claude/

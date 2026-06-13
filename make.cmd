@@ -10,7 +10,7 @@ set DOTNET_CLI_HOME=%~dps0.dotnet
 set dotnet=%USERPROFILE%\scoop\apps\dotnet-sdk\current\dotnet.exe
 if not exist "%dotnet%" set dotnet=dotnet
 set DOTNET_ROOT=%USERPROFILE%\scoop\apps\dotnet-sdk\current
-set op_scope=build clean clean-driver agent-build agent-run diag-build diag-run usage
+set op_scope=build clean clean-driver agent-build agent-run diag-build diag-run gui-build gui-run gui-publish-agent usage
 set op=%~1
 set sc=%SystemRoot%\System32\sc.exe
 set driver_service=R0omenctl
@@ -66,8 +66,25 @@ goto end
 if errorlevel 1 goto fail
 goto end
 
+:gui-build
+cd src\omenctl.Gui
+cargo tauri build
+if errorlevel 1 goto fail
+goto end
+
+:gui-run
+cd src\omenctl.Gui
+cargo tauri dev
+if errorlevel 1 goto fail
+goto end
+
+:gui-publish-agent
+"%dotnet%" publish src\omenctl.Agent\omenctl.Agent.csproj -c Release -r win-x64 --self-contained true -o src\omenctl.Gui\bin
+if errorlevel 1 goto fail
+goto end
+
 :usage
-echo Usage: %~n0 ^<build^|clean^|clean-driver^|agent-build^|agent-run^|diag-build^|diag-run^|usage^>
+echo Usage: %~n0 ^<build^|clean^|clean-driver^|agent-build^|agent-run^|diag-build^|diag-run^|gui-build^|gui-run^|gui-publish-agent^|usage^>
 goto end
 
 :DriverClean

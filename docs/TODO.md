@@ -44,67 +44,32 @@
 - `docs/requirement.md` 补充版本字段要求和 `invalid_apply_command` 错误码。
 - 向后兼容验证通过：diagnostics runner 三个命令均正常运行。
 
-## P0：最小 GUI 原型
+## P0：最小 GUI 原型 ✅
 
-**ROI：极高**  
-**目标：尽快获得可用前端，替代旧 OmenMon GUI 的核心体验。**
+**ROI：极高**
+**状态：已完成（2026-06-13）**
 
-第一版不要做复杂曲线编辑器，不要先做托盘常驻，不要先做漂亮主题。先做“能看、能点、能回读”。
+完成内容：
 
-首批功能：
+- Tauri v2 + Svelte + Tailwind 桌面 GUI，通过 JSON over stdio 与 omenctl Agent 通信。
+- 6 个 Svelte 组件：AgentClient（生命周期+轮询）、SensorCard（温度颜色插值）、FanPanel（RPM 说明文字）、ControlButtons（写入禁用防并发）、WarningBanner（中文映射）、RawJsonPanel（调试）。
+- `make.cmd` 增加 `gui-run`、`gui-build`、`gui-publish-agent`。
+- LHM 新增系统内存读取（`IsMemoryEnabled` + `AddMemorySamples`）。
+- 已验证：snapshot 展示、温度颜色、Manual/Max/Power/Silent 写入与回读、warnings 展示、RPM unavailable 说明文字、并发保护。
 
-1. 启动并管理 `omenctl` Agent 子进程。
-2. 发送 `snapshot` 并展示：
-   - product
-   - deviceProfile
-   - CPU/GPU 温度
-   - CPU/GPU load
-   - GPU power / clocks / memory usage
-   - CPU/GPU fan level
-   - warnings
-3. 支持按钮：
-   - `Manual 35/35`
-   - `Manual 45/45`
-   - `Manual 50/50`
-   - `Max`
-   - `Power`
-   - `Silent`
-4. 支持 raw JSON 面板，便于调试。
-5. 所有写入后自动刷新一次 `snapshot`。
-6. GUI 不直接引用 Core 硬件控制类型，只通过 JSON over stdio 访问 Agent。
+## P0：GUI 安全保护与状态反馈 ✅
 
-验收：
+**ROI：高**
+**状态：已完成（2026-06-13）**
 
-- GUI 可以完整展示一次 `snapshot`。
-- 点击 `Manual 45/45` 后能看到回读结果。
-- 点击 `Max` 后能看到 fan level 变化。
-- warnings 能被明显展示。
-- Agent 崩溃或权限不足时 GUI 能给出清楚错误提示。
+已实现：
 
-## P0：GUI 安全保护与状态反馈
-
-**ROI：高**  
-**目标：避免 GUI 误导用户或重复触发危险操作。**
-
-任务：
-
-1. 写入命令执行期间禁用相关按钮。
-2. 避免重复点击造成并发命令。
-3. 明确显示 Agent 连接状态：
-   - 未启动
-   - 运行中
-   - 权限不足
-   - 硬件不可用
-   - 曲线运行中
-4. 对 `hardware_access_denied` 给出“请以管理员权限运行”的提示。
-5. 对 RPM 不可信、GPU EC 温度不可信等 warning 使用说明性文本，而不是直接显示异常数字。
-6. 加一个“复制当前快照 JSON”按钮。
-
-验收：
-
-- 快速连点按钮不会发出重叠写入。
-- 非管理员启动时 GUI 不崩溃，并能展示降级 snapshot。
-- 不会把 RPM=0 / GPTM=1C 作为正常状态误导用户。
+- 写入命令期间按钮禁用（`isWriting` 控制）。
+- Agent 串行 gate 防止并发写入。
+- Agent 连接状态指示灯（stopped/running/error）。
+- `hardware_access_denied` 错误横幅提示。
+- RPM 不可信 → "RPM unavailable" 说明文字。
+- 复制当前快照 JSON 按钮。
 
 ## P1：风扇曲线 GUI MVP
 
@@ -350,11 +315,11 @@
 
 ## 推荐近期迭代顺序
 
-1. 文档整理与 README 导航。
-2. 协议字段冻结与错误码整理。
-3. GUI 最小原型：snapshot + manual/max/program。
-4. GUI 状态保护：禁用重复点击、权限提示、warning 展示。
-5. 默认风扇曲线 GUI。
+1. ~~文档整理与 README 导航。~~ ✅
+2. ~~协议字段冻结与错误码整理。~~ ✅
+3. ~~GUI 最小原型：snapshot + manual/max/program。~~ ✅
+4. ~~GUI 状态保护：禁用重复点击、权限提示、warning 展示。~~ ✅
+5. 默认风扇曲线 GUI。← 下一步
 6. diagnostics smoke 回归命令。
 7. Agent 生命周期、日志和配置持久化。
 8. 托盘、打包、曲线编辑器。

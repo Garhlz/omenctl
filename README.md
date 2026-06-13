@@ -83,6 +83,21 @@ scoop install dotnet-sdk
 - `snapshot-log` 非管理员也可运行，但可能看到 `bios_unavailable` 等降级 warning。
 - `apply-readback-batch` 和 `curve-watch` 若要验证真实写入效果，建议以管理员权限运行。
 
+构建并运行 GUI：
+
+```powershell
+# 首次需安装 Rust 工具链和 Tauri CLI
+cargo install tauri-cli --version "^2"
+
+# 构建并运行 GUI（开发模式）
+.\make.cmd gui-run
+
+# 发布 Agent 为 self-contained exe（供 GUI 打包）
+.\make.cmd gui-publish-agent
+```
+
+GUI 需要 Rust 工具链（`rustup`）和 Node.js。GUI 通过 JSON over stdio 与 `omenctl` Agent 通信，不直接操作硬件。
+
 ## Agent 协议
 
 完整的协议规范、JSON schema、命令参考、错误码目录和版本策略见 [`docs/protocol.md`](docs/protocol.md)。
