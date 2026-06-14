@@ -12,8 +12,9 @@ src/omenctl.Gui/node_modules/
 src/omenctl.Gui/dist/
 src/omenctl.Gui/bin/
 
-# Local hardware diagnostics
-diagnostics/
+# Local hardware diagnostics data (source code under diagnostics/omenctl.Diagnostics/ is tracked)
+diagnostics/8BAB/
+diagnostics/unknown/
 log-*
 
 .claude/
