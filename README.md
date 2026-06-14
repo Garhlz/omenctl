@@ -73,6 +73,10 @@ scoop install dotnet-sdk
 运行自动化 diagnostics runner：
 
 ```powershell
+# 一键最小回归（snapshot + setManual 批量 + 曲线 30s）
+.\make.cmd diag-run smoke
+
+# 单独命令
 .\make.cmd diag-run snapshot-log --count 5 --interval-seconds 2
 .\make.cmd diag-run apply-readback-batch
 .\make.cmd diag-run curve-watch --duration-seconds 60 --poll-seconds 5

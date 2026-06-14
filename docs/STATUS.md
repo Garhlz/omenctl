@@ -159,27 +159,12 @@ Agent 已支持 JSON over stdio 的基本调度骨架。
    - 原始 `jsonl` 采样日志
    - 控制台 summary
 
-已实现命令：
+2026-06-14 升级：
 
-- `snapshot-log`
-- `apply-readback-batch`
-- `curve-watch`
-
-`apply-readback-batch` 已覆盖：
-
-- `setManual 35/35`
-- `setManual 45/45`
-- `setManual 50/50`
-- `setMax`
-
-`curve-watch` 已记录：
-
-- `lastTemperature`
-- `lastTemperatureSource`
-- `lastApplied`
-- `tickCount`
-- `applyCount`
-- 是否出现 `lastError`
+- `apply-readback-batch` summary 增加 `requestedLevel`、`passed` 判定、`warnings`。
+- `curve-watch` 增加 `sourceFlaps`（温度源切换次数）、`applyChanges`（应用变更次数）。
+- 新增 `smoke` 命令：一键串联 `snapshot-log` → `apply-readback-batch` → `curve-watch`。
+- 曲线点统一引用 `DeviceProfiles.EightBabCurve`，不再独立维护。
 
 ## 8. 8BAB 设备诊断结论
 

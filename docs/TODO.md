@@ -84,32 +84,15 @@
 - Agent：PID 线性插值、独立分扇、writeGate 串行化、LHM 瞬断重试、worker crash guard。
 - code review 修复：agent_manager 竞态、setInterval→setTimeout、死代码清理、默认点同步。
 
-## P1：diagnostics 结果纳入回归流程
+## P1：diagnostics 结果纳入回归流程 ✅
 
-**ROI：高**  
-**目标：让每次修改都能证明没有破坏 8BAB 基线能力。**
+**ROI：高**
+**状态：已完成（2026-06-14）**
 
-任务：
-
-1. 将 diagnostics runner 的常用命令写入 README。
-2. 为 `apply-readback-batch` 增加更清晰的 summary：
-   - requested level
-   - readback level
-   - warnings
-   - 是否通过
-3. 为 `curve-watch` 增加关键统计：
-   - 温度源分布
-   - 应用次数
-   - 是否出现错误
-   - 是否频繁跳档
-4. 增加一个 `diag-run smoke` 命令，串联最小回归流程。
-5. 建议每次 GUI 或 Agent 控制逻辑修改后都跑一次 smoke。
-
-验收：
-
-- 一条命令可以跑完最小回归。
-- 输出能快速判断 setManual / setMax / curve 是否仍然可用。
-- 新日志能长期保存到 `diagnostics/8BAB/`。
+- `apply-readback-batch` summary 增加 requestedLevel、finalBiosLevel、warnings、passed 判定。
+- `curve-watch` 增加 sourceFlaps（温度源切换次数）、applyChanges（应用变更次数）。
+- 新增 `diag-run smoke` 一键回归：snapshot-log 3 次 → apply-readback-batch → curve-watch 30s。
+- 曲线点引用 `DeviceProfiles.EightBabCurve`，不再独立维护。
 
 ## P1：Agent 生命周期与 GUI 集成细节
 
@@ -283,7 +266,7 @@
 3. ~~GUI 最小原型~~ ✅
 4. ~~GUI 状态保护~~ ✅
 5. ~~风扇曲线 GUI~~ ✅
-6. diagnostics smoke 回归命令。← 下一步
-7. 配置持久化（保存手动 level、曲线点、刷新间隔、窗口位置）。
+6. ~~diagnostics smoke 回归命令~~ ✅
+7. 配置持久化（保存手动 level、曲线点、刷新间隔、窗口位置）。← 下一步
 8. Agent 生命周期健壮性（自动寻址 exe、崩溃恢复、超时、日志）。
 9. 托盘、打包、曲线编辑器。
