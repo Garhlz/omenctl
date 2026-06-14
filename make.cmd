@@ -10,7 +10,7 @@ set DOTNET_CLI_HOME=%~dps0.dotnet
 set dotnet=%USERPROFILE%\scoop\apps\dotnet-sdk\current\dotnet.exe
 if not exist "%dotnet%" set dotnet=dotnet
 set DOTNET_ROOT=%USERPROFILE%\scoop\apps\dotnet-sdk\current
-set op_scope=build clean clean-driver agent-build agent-run diag-build diag-run gui-build gui-run gui-publish-agent usage
+set op_scope=build clean clean-driver agent-build agent-run diag-build diag-run gui-build gui-run gui-publish-agent release usage
 set op=%~1
 set sc=%SystemRoot%\System32\sc.exe
 set driver_service=R0omenctl
@@ -85,8 +85,38 @@ goto end
 if errorlevel 1 goto fail
 goto end
 
+:release
+echo Step 1/4: Building .NET solution...
+"%dotnet%" build omenctl.sln -c Release -p:Platform=x64
+if errorlevel 1 goto fail
+
+echo Step 2/4: Publishing self-contained agent...
+set release_dir=%~dps0release\omenctl
+if exist "%release_dir%" rmdir /s /q "%release_dir%"
+mkdir "%release_dir%"
+"%dotnet%" publish src\omenctl.Agent\omenctl.Agent.csproj -c Release -r win-x64 --self-contained true -o "%release_dir%"
+if errorlevel 1 goto fail
+
+echo Step 3/4: Building Tauri GUI...
+cd src\omenctl.Gui
+npm run build
+if errorlevel 1 goto fail
+cd src-tauri
+cargo build --release
+if errorlevel 1 goto fail
+cd %~dps0
+
+echo Step 4/4: Packaging release...
+copy /y src\omenctl.Gui\src-tauri\target\release\omenctl-gui.exe "%release_dir%\" >nul
+copy /y Resources\Driver.sys.gz "%release_dir%\" >nul
+copy /y Resources\README.md "%release_dir%\Driver-README.md" >nul
+copy /y LICENSE.md "%release_dir%\" >nul
+powershell -Command "Compress-Archive -Path '%release_dir%\*' -DestinationPath '%~dps0release\omenctl-v0.1.0.zip' -Force"
+echo Release package created: release\omenctl-v0.1.0.zip
+goto end
+
 :usage
-echo Usage: %~n0 ^<build^|clean^|clean-driver^|agent-build^|agent-run^|diag-build^|diag-run^|gui-build^|gui-run^|gui-publish-agent^|usage^>
+echo Usage: %~n0 ^<build^|clean^|clean-driver^|agent-build^|agent-run^|diag-build^|diag-run^|gui-build^|gui-run^|gui-publish-agent^|release^|usage^>
 goto end
 
 :DriverClean
