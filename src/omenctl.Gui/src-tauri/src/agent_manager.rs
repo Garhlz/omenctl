@@ -1,4 +1,6 @@
-use std::io::{BufRead, BufReader};
+use std::fs;
+use std::io::{BufRead, BufReader, Write};
+use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{Arc, Mutex, atomic::{AtomicU64, Ordering}};
 
@@ -17,6 +19,7 @@ pub struct AgentManager {
     stdout: Option<Arc<Mutex<BufReader<std::process::ChildStdout>>>>,
     status: Arc<Mutex<AgentStatus>>,
     generation: Arc<AtomicU64>,
+    log_path: Option<PathBuf>,
 }
 
 impl AgentManager {
@@ -27,15 +30,14 @@ impl AgentManager {
             stdout: None,
             status: Arc::new(Mutex::new(AgentStatus::NotStarted)),
             generation: Arc::new(AtomicU64::new(0)),
+            log_path: None,
         }
     }
 
     pub fn start(&mut self) -> Result<(), String> {
-        // Idempotent: don't spawn a second agent if one is already running
         if self.is_running() {
             return Ok(());
         }
-        // If a dead process handle is still around, clean it up
         if self.process.is_some() {
             self.cleanup_process();
         }
@@ -46,6 +48,13 @@ impl AgentManager {
             *self.status.lock().unwrap_or_else(|e| e.into_inner()) = AgentStatus::Error(e.clone());
             e
         })?;
+
+        // Prepare log file
+        let log_dir = dirs_next().join("omenctl").join("logs");
+        let _ = fs::create_dir_all(&log_dir);
+        let stamp = chrono::Local::now();
+        let log_file = log_dir.join(format!("agent-{}.log", stamp.format("%Y%m%d-%H%M%S")));
+        self.log_path = Some(log_file.clone());
 
         let mut cmd = Command::new(&program);
         cmd.args(&args)
@@ -64,23 +73,26 @@ impl AgentManager {
         let stdout = child.stdout.take()
             .ok_or_else(|| "Failed to capture agent stdout".to_string())?;
 
-        // Bump generation so old stderr threads know they're stale
         let gen = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
         let status = self.status.clone();
         let generation = self.generation.clone();
 
-        // Spawn stderr pump
+        // Spawn stderr pump — logs to file and console
         if let Some(stderr) = child.stderr.take() {
             std::thread::spawn(move || {
+                let mut log_writer = fs::File::create(&log_file).ok();
                 let reader = BufReader::new(stderr);
                 for line in reader.lines() {
                     if let Ok(line) = line {
                         if !line.trim().is_empty() {
                             log::warn!("[omenctl stderr] {}", line.trim());
+                            if let Some(ref mut w) = log_writer {
+                                let _ = writeln!(w, "{}", line.trim());
+                                let _ = w.flush();
+                            }
                         }
                     }
                 }
-                // Process exited — only set Stopped if we're still the current generation
                 if generation.load(Ordering::SeqCst) == gen {
                     if let Ok(mut s) = status.lock() {
                         *s = AgentStatus::Stopped;
@@ -112,12 +124,15 @@ impl AgentManager {
         }
     }
 
-    /// Clone the I/O handles so callers can do I/O without holding the outer AppState lock.
     pub fn io_handles(&self) -> Option<(Arc<Mutex<ChildStdin>>, Arc<Mutex<BufReader<std::process::ChildStdout>>>)> {
         match (&self.stdin, &self.stdout) {
             (Some(si), Some(so)) => Some((si.clone(), so.clone())),
             _ => None,
         }
+    }
+
+    pub fn log_path_string(&self) -> Option<String> {
+        self.log_path.as_ref().map(|p| p.to_string_lossy().to_string())
     }
 
     pub fn is_running(&self) -> bool {
@@ -139,8 +154,15 @@ impl AgentManager {
     }
 }
 
+impl Drop for AgentManager {
+    fn drop(&mut self) {
+        self.stdin = None;
+        self.stdout = None;
+        self.cleanup_process();
+    }
+}
+
 fn resolve_agent_path() -> Result<(String, Vec<String>), String> {
-    // 1. OMENCTL_AGENT_PATH env var
     if let Ok(path) = std::env::var("OMENCTL_AGENT_PATH") {
         let dotnet = find_dotnet();
         if path.ends_with(".dll") {
@@ -149,7 +171,6 @@ fn resolve_agent_path() -> Result<(String, Vec<String>), String> {
         return Ok((path, vec![]));
     }
 
-    // 2. Self-contained exe next to the Tauri binary
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(dir) = exe_path.parent() {
             let exe = dir.join("omenctl.exe");
@@ -159,24 +180,20 @@ fn resolve_agent_path() -> Result<(String, Vec<String>), String> {
         }
     }
 
-    // 3. Development fallback: agent DLL built by make.cmd
     let dev_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap()  // src-tauri -> omenctl.Gui
-        .parent().unwrap()  // omenctl.Gui -> src
+        .parent().unwrap()
+        .parent().unwrap()
         .join("omenctl.Agent/bin/x64/Release/net10.0-windows/omenctl.dll");
 
     if dev_path.exists() {
         let dotnet = find_dotnet();
-        return Ok((dotnet, vec![
-            dev_path.to_string_lossy().to_string()
-        ]));
+        return Ok((dotnet, vec![dev_path.to_string_lossy().to_string()]));
     }
 
     Err("Could not locate omenctl agent binary. Set OMENCTL_AGENT_PATH env var or build the agent first.".to_string())
 }
 
 fn find_dotnet() -> String {
-    // Check Scoop-installed .NET SDK first (matches make.cmd logic)
     let scoop = std::env::var("USERPROFILE")
         .map(|p| std::path::PathBuf::from(p).join("scoop/apps/dotnet-sdk/current/dotnet.exe"))
         .ok();
@@ -186,6 +203,20 @@ fn find_dotnet() -> String {
             return path.to_string_lossy().to_string();
         }
     }
-    // Fall back to PATH
     "dotnet".to_string()
+}
+
+fn dirs_next() -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        std::env::var("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("."))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::env::var("HOME")
+            .map(|h| PathBuf::from(h).join(".local").join("share"))
+            .unwrap_or_else(|_| PathBuf::from("."))
+    }
 }

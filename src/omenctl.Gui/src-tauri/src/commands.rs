@@ -69,3 +69,9 @@ pub fn agent_status(state: State<AppState>) -> String {
         .unwrap_or_else(|_| "error:lock_failed".to_string());
     agent
 }
+
+#[tauri::command]
+pub fn get_log_path(state: State<AppState>) -> Option<String> {
+    let agent = state.agent.lock().ok()?;
+    agent.log_path_string()
+}

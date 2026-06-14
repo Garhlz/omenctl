@@ -170,16 +170,35 @@
       >
         Copy JSON
       </button>
+      <button
+        onclick={async () => {
+          try {
+            const path = await invokeTauri('get_log_path');
+            if (path) {
+              const dir = path.replace(/[\\/]agent-[^\\/]*\.log$/, '');
+              await invokeTauri('plugin:opener|open_path', { path: dir });
+            }
+          } catch (_) {}
+        }}
+        class="bg-[#21262d] hover:bg-[#30363d] text-[#8b949e] border border-[#30363d] text-sm px-3 py-1.5 rounded-md transition-colors"
+      >
+        Logs
+      </button>
     </div>
   </header>
 
   <!-- Error Banner -->
   {#if lastError.message}
     <div
-      class="bg-[#da3633]/20 border-b border-[#f85149]/30 px-6 py-2 text-sm text-[#f85149]"
+      class="bg-[#da3633]/20 border-b border-[#f85149]/30 px-6 py-2 text-sm text-[#f85149] flex items-center gap-3"
     >
-      <span class="font-semibold">{lastError.code || "Error"}:</span>
-      {lastError.message}
+      <span><span class="font-semibold">{lastError.code || "Error"}:</span> {lastError.message}</span>
+      {#if agentStatus.value === "error"}
+        <button onclick={handleStart}
+          class="bg-[#da3633]/40 hover:bg-[#da3633]/60 text-white text-xs px-3 py-0.5 rounded transition-colors">
+          Retry
+        </button>
+      {/if}
     </div>
   {/if}
 
