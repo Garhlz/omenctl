@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
+use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{Arc, Mutex, atomic::{AtomicU64, Ordering}};
