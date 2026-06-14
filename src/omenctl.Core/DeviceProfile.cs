@@ -9,7 +9,10 @@ public sealed record DeviceProfile(
     [property: JsonPropertyName("fanRpmReliable")] bool FanRpmReliable,
     [property: JsonPropertyName("omenGpuTempReliable")] bool OmenGpuTempReliable,
     [property: JsonPropertyName("omenFanRateInterpretation")] string OmenFanRateInterpretation,
-    [property: JsonPropertyName("rawFanMode")] string? RawFanMode);
+    [property: JsonPropertyName("rawFanMode")] string? RawFanMode,
+    [property: JsonPropertyName("manualFanLevelMin")] int ManualFanLevelMin = 0,
+    [property: JsonPropertyName("manualFanLevelMax")] int ManualFanLevelMax = 100,
+    [property: JsonPropertyName("recommendedCurve")] FanCurvePoint[]? RecommendedCurve = null);
 
 public static class DeviceProfiles
 {
@@ -18,6 +21,16 @@ public static class DeviceProfiles
             ? EightBab
             : Unknown(product);
 
+    // 8BAB confirmed: SetManual 100/100 → BIOS readback 64/64; EC only uses 6 bits (0–64)
+    public static readonly FanCurvePoint[] EightBabCurve =
+    [
+        new(45, 35, 35),
+        new(55, 44, 44),
+        new(65, 52, 52),
+        new(75, 58, 58),
+        new(85, 64, 64),
+    ];
+
     public static readonly DeviceProfile EightBab = new(
         Id: "8BAB",
         FanLevelReliable: true,
@@ -25,7 +38,10 @@ public static class DeviceProfiles
         FanRpmReliable: false,
         OmenGpuTempReliable: false,
         OmenFanRateInterpretation: "raw",
-        RawFanMode: "0x44");
+        RawFanMode: "0x44",
+        ManualFanLevelMin: 0,
+        ManualFanLevelMax: 64,
+        RecommendedCurve: EightBabCurve);
 
     private static DeviceProfile Unknown(string? product) => new(
         Id: string.IsNullOrWhiteSpace(product) ? "unknown" : product,

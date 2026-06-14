@@ -48,7 +48,17 @@
     if (snapshot.data) pushSnapshot();
   });
 
+  let levelMax = $derived(snapshot.data?.deviceProfile?.manualFanLevelMax ?? 64);
+
+  function updateLevelMax() {
+    const max = levelMax;
+    [cpuChart, gpuChart].forEach(c => {
+      if (c) c.options.scales.yLevel.max = max;
+    });
+  }
+
   function createChart(canvas, label, tempColor, levelColor) {
+    const max = snapshot.data?.deviceProfile?.manualFanLevelMax ?? 64;
     return new Chart(canvas, {
       type: 'line',
       data: {
@@ -98,9 +108,9 @@
           yLevel: {
             position: 'right',
             min: 0,
-            max: 100,
+            max,
             title: { display: true, text: 'Level', color: '#8b949e', font: { size: 10 } },
-            ticks: { color: '#8b949e', font: { size: 9 }, stepSize: 25 },
+            ticks: { color: '#8b949e', font: { size: 9 }, stepSize: Math.ceil(max / 4) },
             grid: { display: false },
           },
         },

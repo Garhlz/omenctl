@@ -73,6 +73,8 @@ if errorlevel 1 goto fail
 goto end
 
 :gui-run
+"%dotnet%" build %agent_project% -c Release -p:Platform=x64
+if errorlevel 1 goto fail
 cd src\omenctl.Gui
 cargo tauri dev
 if errorlevel 1 goto fail

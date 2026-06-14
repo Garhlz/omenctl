@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{Arc, Mutex, atomic::{AtomicU64, Ordering}};
 
@@ -31,6 +31,15 @@ impl AgentManager {
     }
 
     pub fn start(&mut self) -> Result<(), String> {
+        // Idempotent: don't spawn a second agent if one is already running
+        if self.is_running() {
+            return Ok(());
+        }
+        // If a dead process handle is still around, clean it up
+        if self.process.is_some() {
+            self.cleanup_process();
+        }
+
         *self.status.lock().map_err(|e| e.to_string())? = AgentStatus::Starting;
 
         let (program, args) = resolve_agent_path().map_err(|e| {
@@ -89,43 +98,26 @@ impl AgentManager {
     }
 
     pub fn stop(&mut self) -> Result<(), String> {
-        // Drop stdin/stdout handles first
         self.stdin = None;
         self.stdout = None;
-
-        if let Some(mut child) = self.process.take() {
-            child.kill().map_err(|e| format!("Failed to kill agent: {}", e))?;
-            child.wait().map_err(|e| format!("Failed to wait for agent: {}", e))?;
-        }
-
+        self.cleanup_process();
         *self.status.lock().map_err(|e| e.to_string())? = AgentStatus::Stopped;
         Ok(())
     }
 
-    pub fn send_command(&self, command: &str) -> Result<String, String> {
-        let stdin = self.stdin.as_ref()
-            .ok_or("Agent not started")?;
-        let stdout = self.stdout.as_ref()
-            .ok_or("Agent not started")?;
-
-        // Serialize writes through mutex
-        let mut stdin_guard = stdin.lock().map_err(|e| e.to_string())?;
-        writeln!(stdin_guard, "{}", command)
-            .map_err(|e| format!("Failed to write to agent: {}", e))?;
-        stdin_guard.flush().map_err(|e| format!("Failed to flush: {}", e))?;
-        drop(stdin_guard);
-
-        // Read one line response
-        let mut stdout_guard = stdout.lock().map_err(|e| e.to_string())?;
-        let mut response = String::new();
-        stdout_guard.read_line(&mut response)
-            .map_err(|e| format!("Failed to read from agent: {}", e))?;
-
-        if response.trim().is_empty() {
-            return Err("Agent closed stdout unexpectedly".to_string());
+    fn cleanup_process(&mut self) {
+        if let Some(mut child) = self.process.take() {
+            let _ = child.kill();
+            let _ = child.wait();
         }
+    }
 
-        Ok(response.trim_end().to_string())
+    /// Clone the I/O handles so callers can do I/O without holding the outer AppState lock.
+    pub fn io_handles(&self) -> Option<(Arc<Mutex<ChildStdin>>, Arc<Mutex<BufReader<std::process::ChildStdout>>>)> {
+        match (&self.stdin, &self.stdout) {
+            (Some(si), Some(so)) => Some((si.clone(), so.clone())),
+            _ => None,
+        }
     }
 
     pub fn is_running(&self) -> bool {

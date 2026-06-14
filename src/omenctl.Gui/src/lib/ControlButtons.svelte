@@ -1,5 +1,5 @@
 <script>
-  import { isWriting, invokeTauri } from "../stores/agent.svelte.js";
+  import { snapshot, curveStatus, isWriting, invokeTauri } from "../stores/agent.svelte.js";
 
   let { curveRunning = false } = $props();
 
@@ -17,7 +17,9 @@
       isWriting.value = true;
       statusText = "Stopping curve...";
       try {
-        await invokeTauri("send_command", { command: '{"cmd":"stopCurve"}' });
+        const raw = await invokeTauri("send_command", { command: '{"cmd":"stopCurve"}' });
+        const stopResp = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (stopResp.ok) curveStatus.data = stopResp.data;
       } catch (e) {
         statusText = `Failed to stop curve: ${e}`;
         isWriting.value = false;
@@ -34,6 +36,7 @@
       if (!resp.ok) {
         statusText = `Error: ${resp.error?.code ?? "unknown"}`;
       } else {
+        snapshot.data = resp.data;
         statusText = "OK";
       }
     } catch (e) {

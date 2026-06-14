@@ -4,18 +4,20 @@
     getCurveRunning,
     isWriting,
     lastError,
+    snapshot,
     invokeTauri,
   } from "../stores/agent.svelte.js";
 
   let curveRunning = $derived(getCurveRunning());
 
-  const DEFAULT_POINTS = [
+  const FALLBACK_POINTS = [
     { temp: 45, cpuLevel: 35, gpuLevel: 35 },
     { temp: 55, cpuLevel: 44, gpuLevel: 44 },
     { temp: 65, cpuLevel: 52, gpuLevel: 52 },
     { temp: 75, cpuLevel: 58, gpuLevel: 58 },
     { temp: 85, cpuLevel: 64, gpuLevel: 64 },
   ];
+  let defaultPoints = $derived(snapshot.data?.deviceProfile?.recommendedCurve ?? FALLBACK_POINTS);
   const INTERVAL = 5;
   const HYSTERESIS = 2;
 
@@ -31,7 +33,7 @@
           cmd: "startCurve",
           intervalSeconds: INTERVAL,
           hysteresisC: HYSTERESIS,
-          points: DEFAULT_POINTS,
+          points: defaultPoints,
         }),
       });
       const resp = typeof raw === "string" ? JSON.parse(raw) : raw;
@@ -89,7 +91,7 @@
   let applyCount = $derived(curveStatus.data?.applyCount ?? 0);
   let lastErr = $derived(curveStatus.data?.lastError);
 
-  let pointsText = $derived(DEFAULT_POINTS.map(p => `${p.temp}°→${p.cpuLevel}/${p.gpuLevel}`).join(' · '));
+  let pointsText = $derived(defaultPoints.map(p => `${p.temp}°→${p.cpuLevel}/${p.gpuLevel}`).join(' · '));
 </script>
 
 <div class="bg-[#161b22] border border-[#30363d] rounded-lg p-4">

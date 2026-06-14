@@ -357,15 +357,8 @@ internal sealed class FanCurveService
             throw new ArgumentOutOfRangeException(name, "Fan level must be between 0 and 100.");
     }
 
-    // 8BAB BIOS fan level hardware cap is 63 (0x3F); values above are silently clamped
-    private static readonly FanCurvePoint[] DefaultPoints =
-    [
-        new(45, 35, 35),
-        new(55, 44, 44),
-        new(65, 52, 52),
-        new(75, 58, 58),
-        new(85, 64, 64)
-    ];
+    // Default curve from device profile — single source of truth
+    private static readonly FanCurvePoint[] DefaultPoints = DeviceProfiles.EightBabCurve;
 }
 
 internal sealed record FanCurveSettings(

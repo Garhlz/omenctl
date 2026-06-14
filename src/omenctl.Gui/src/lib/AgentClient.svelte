@@ -18,7 +18,7 @@
   let curveRunning = $derived(getCurveRunning());
 
   let statusMessage = $state("Not started");
-  let showStart = $derived(agentStatus.value === "stopped");
+  let showStart = $derived(agentStatus.value === "stopped" || agentStatus.value === "error");
   let showStop = $derived(agentStatus.value === "running");
   let pollTimer = null;
 
@@ -151,7 +151,7 @@
           onclick={handleStart}
           class="bg-[#238636] hover:bg-[#2ea043] text-white text-sm px-4 py-1.5 rounded-md transition-colors"
         >
-          Start Agent
+          {agentStatus.value === "error" ? "Retry" : "Start Agent"}
         </button>
       {/if}
       {#if showStop}

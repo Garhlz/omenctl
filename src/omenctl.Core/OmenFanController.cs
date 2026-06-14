@@ -10,6 +10,14 @@ public sealed class OmenFanController : IHardwareController, IDisposable
     private OmenEmbeddedController? ec;
     private bool ecOpenAttempted;
     private string? product;
+    private DeviceProfile? profile;
+
+    private DeviceProfile GetProfile()
+    {
+        if(profile is not null) return profile;
+        profile = DeviceProfiles.ForProduct(product);
+        return profile;
+    }
 
     public void Dispose()
     {
@@ -331,10 +339,11 @@ public sealed class OmenFanController : IHardwareController, IDisposable
             warnings.Add($"{name}_temp_suspect");
     }
 
-    private static byte ValidateFanLevel(int level, string paramName)
+    private byte ValidateFanLevel(int level, string paramName)
     {
-        if (level is < 0 or > 100)
-            throw new ArgumentOutOfRangeException(paramName, "Fan level must be between 0 and 100.");
+        int max = GetProfile().ManualFanLevelMax;
+        if (level is < 0 || level > max)
+            throw new ArgumentOutOfRangeException(paramName, $"Fan level must be between 0 and {max} (device limit).");
         return (byte)level;
     }
 
