@@ -7,6 +7,7 @@ use crate::agent_manager::AgentManager;
 
 pub struct AppState {
     pub agent: Mutex<AgentManager>,
+    pub command_lock: Mutex<()>,
 }
 
 #[tauri::command]
@@ -18,6 +19,7 @@ pub fn start_agent(state: State<AppState>) -> Result<String, String> {
 
 #[tauri::command]
 pub fn stop_agent(state: State<AppState>) -> Result<String, String> {
+    let _cmd_guard = state.command_lock.lock().map_err(|e| e.to_string())?;
     let mut agent = state.agent.lock().map_err(|e| e.to_string())?;
     agent.stop()?;
     Ok("ok".to_string())
@@ -25,7 +27,9 @@ pub fn stop_agent(state: State<AppState>) -> Result<String, String> {
 
 #[tauri::command]
 pub fn send_command(state: State<AppState>, command: String) -> Result<String, String> {
-    // Clone I/O handles and release the AppState lock before blocking I/O
+    // Global command lock — ensures write+read is an atomic transaction
+    let _cmd_guard = state.command_lock.lock().map_err(|e| e.to_string())?;
+
     let (stdin, stdout) = {
         let agent = state.agent.lock().map_err(|e| e.to_string())?;
         agent.io_handles().ok_or("Agent not started")?
@@ -58,7 +62,14 @@ pub fn send_command(state: State<AppState>, command: String) -> Result<String, S
             }
         }
         Ok(Err(e)) => Err(e),
-        Err(_timeout) => Err("Agent command timed out (15s)".to_string()),
+        Err(_timeout) => {
+            // Timeout: old read thread may still hold stdout mutex.
+            // Kill agent to release all handles; frontend will show error and offer Retry.
+            if let Ok(mut agent) = state.agent.lock() {
+                let _ = agent.stop();
+            }
+            Err("Agent command timed out (15s). Agent has been stopped — restart required.".to_string())
+        },
     }
 }
 
@@ -81,4 +92,13 @@ pub fn set_tray_tooltip(app: tauri::AppHandle, text: String) {
     if let Some(tray) = app.tray_by_id("omenctl-tray") {
         let _ = tray.set_tooltip(Some(text));
     }
+}
+
+#[tauri::command]
+pub fn quit_app(state: State<AppState>) {
+    // Stop agent cleanly before exit
+    if let Ok(mut agent) = state.agent.lock() {
+        let _ = agent.stop();
+    }
+    std::process::exit(0);
 }

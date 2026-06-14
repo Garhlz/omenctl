@@ -53,8 +53,7 @@
       },
       'tray_exit': async () => {
         if (curveRunning && !window.confirm('Fan curve is running. Stop curve and exit?')) return;
-        if (agentStatus.value === 'running') await invokeTauri('stop_agent');
-        await invokeTauri('plugin:opener|exit'); // fallback if app.exit doesn't trigger
+        await invokeTauri('quit_app');
       },
     };
     for (const [event, handler] of Object.entries(cmds)) {

@@ -9,6 +9,7 @@ use tauri::Manager;
 pub fn run() {
     let app_state = AppState {
         agent: std::sync::Mutex::new(agent_manager::AgentManager::new()),
+        command_lock: std::sync::Mutex::new(()),
     };
 
     tauri::Builder::default()
@@ -50,6 +51,7 @@ pub fn run() {
             commands::agent_status,
             commands::get_log_path,
             commands::set_tray_tooltip,
+            commands::quit_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running omenctl GUI");
