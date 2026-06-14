@@ -1,167 +1,94 @@
 # omenctl
 
-这是一个面向 **HP Omen 16 / 8BAB** 的硬件控制与监控实验项目。
+面向 **HP Omen 16 / 8BAB** 的本地硬件控制与监控 Agent + Tauri/Svelte 桌面 GUI。
 
-项目从开源 [OmenMon](https://omenmon.github.io/) 代码演化而来，但目标已经不再是维护原版 WinForms GUI，而是一个更清晰的现代本地控制 Agent：`omenctl`。
-
-- 用 OmenMon 中已验证可用的 HP BIOS / EC 风扇控制能力。
-- 用 LibreHardwareMonitor / NVML 等通用来源读取温度、使用率、功耗、频率等传感器数据。
-- 用 `.NET 10` 编写一个本地 Agent，对未来的 Tauri/Web UI 暴露稳定 JSON 协议。
-
-## 当前结论
-
-针对这台 `8BAB` 设备，已有诊断结果表明：
-
-- 风扇 level 控制有效：
-  - `Manual 35/35`
-  - `Manual 45/45`
-  - `Manual 50/50`
-  - `Max`
-- 实验性风扇曲线可运行：
-  - `startCurve`
-  - `curveStatus`
-  - `stopCurve`
-- `Program Power/Silent` 当前只是 BIOS fan mode 快捷映射，不等同于旧 OmenMon 的完整温控程序。
-- OmenMon 原始 RPM 读数不可信：
-  - CPU/GPU RPM 长期为 `0`
-  - 但 fan level/rate 非零
-- OmenMon 原始温度寄存器不完全可信：
-  - `CPUT=0` 时需要 BIOS fallback
-  - `GPTM=1C` 不应作为 GPU 温度
-- 因此，新架构中：
-  - OmenMon 负责风扇控制
-  - 传感器监控交给 LibreHardwareMonitor / NVML
+项目从 [OmenMon](https://omenmon.github.io/) 演化而来，保留其已验证的 BIOS / EC 风扇控制路径，传感器改用 LibreHardwareMonitor + NVML，GUI 通过 JSON over stdio 协议与 Agent 通信。
 
 ## 项目结构
 
-```text
+```
 omenctl.sln
 src/
-  omenctl.Core/      核心协议、设备画像、快照模型、控制接口
-  omenctl.Sensors/   传感器 provider 层，接 LHM / NVML
-  omenctl.Agent/     JSON over stdio 本地 Agent
+  omenctl.Core/        协议、设备画像、快照模型、控制接口
+  omenctl.Sensors/     LHM / NVML 传感器融合
+  omenctl.Agent/       JSON over stdio 本地 Agent
+  omenctl.Gui/         Tauri v2 + Svelte + Tailwind 桌面 GUI
 docs/
-  TODO.md            当前开发计划
-  requirement.md     当前阶段需求约束
+  protocol.md          完整协议规范与 JSON schema
+  requirement.md       需求约束
+  TODO.md              后续开发路径
+  STATUS.md            已完成工作与诊断结论
 diagnostics/
-  8BAB/              历史诊断结果
-  omenctl.Diagnostics/ 自动化验证 CLI / test runner
+  omenctl.Diagnostics/ 自动化验证 CLI（smoke / snapshot-log / apply-readback-batch / curve-watch）
+  8BAB/                历史诊断基线
 ```
 
-旧版 `.NET Framework 4.8` / WinForms / CLI 代码已经清理。当前仓库只保留现代 Agent 主线、必要的 GPL 来源说明、诊断记录和 WinRing0 驱动资源。
+## 8BAB 设备画像
+
+```
+fanLevelReliable        = true
+fanControlReliable      = true
+fanRpmReliable          = false
+omenGpuTempReliable     = false
+manualFanLevelMax       = 64
+recommendedCurve:
+  45°C → 35/35
+  55°C → 44/44
+  65°C → 52/52
+  75°C → 58/58
+  85°C → 64/64
+```
+
+已验证：`setManual` 35/35 ~ 64/64、`setMax`、`startCurve` / `stopCurve`、PID 线性插值曲线。
 
 ## 构建
 
-需要 `.NET 10 SDK`。当前本机使用 Scoop 安装：
+需要 `.NET 10 SDK`（Scoop: `scoop install dotnet-sdk`）、Rust 工具链、Node.js。
 
 ```powershell
-scoop install dotnet-sdk
-```
+.\make.cmd build              # 构建 Agent + Diagnostics
+.\make.cmd gui-run            # 构建 Agent 并启动 Tauri GUI（开发模式）
+.\make.cmd gui-publish-agent  # 发布 self-contained agent exe
 
-构建现代 Agent：
-
-```powershell
-.\make.cmd build
-```
-
-运行 Agent：
-
-```powershell
-.\make.cmd agent-run
-```
-
-运行自动化 diagnostics runner：
-
-```powershell
-# 一键最小回归（snapshot + setManual 批量 + 曲线 30s）
-.\make.cmd diag-run smoke
-
-# 单独命令
+# Diagnostics
+.\make.cmd diag-run smoke     # 一键回归
 .\make.cmd diag-run snapshot-log --count 5 --interval-seconds 2
 .\make.cmd diag-run apply-readback-batch
 .\make.cmd diag-run curve-watch --duration-seconds 60 --poll-seconds 5
 ```
 
-说明：
-
-- `snapshot-log` 非管理员也可运行，但可能看到 `bios_unavailable` 等降级 warning。
-- `apply-readback-batch` 和 `curve-watch` 若要验证真实写入效果，建议以管理员权限运行。
-
-构建并运行 GUI：
-
-```powershell
-# 首次需安装 Rust 工具链和 Tauri CLI
-cargo install tauri-cli --version "^2"
-
-# 构建并运行 GUI（开发模式）
-.\make.cmd gui-run
-
-# 发布 Agent 为 self-contained exe（供 GUI 打包）
-.\make.cmd gui-publish-agent
-```
-
-GUI 需要 Rust 工具链（`rustup`）和 Node.js。GUI 通过 JSON over stdio 与 `omenctl` Agent 通信，不直接操作硬件。
+写入类命令需管理员权限，`snapshot` 非管理员可降级运行。
 
 ## Agent 协议
 
-完整的协议规范、JSON schema、命令参考、错误码目录和版本策略见 [`docs/protocol.md`](docs/protocol.md)。
-
-Agent 从 `stdin` 读取一行 JSON 命令，向 `stdout` 输出一行 JSON 响应。
-
-示例：
+完整规范见 [`docs/protocol.md`](docs/protocol.md)。Agent 从 `stdin` 读一行 JSON，向 `stdout` 写一行 JSON。
 
 ```json
 {"cmd":"snapshot"}
 {"cmd":"setManual","cpuLevel":45,"gpuLevel":45}
 {"cmd":"setMax"}
 {"cmd":"setProgram","name":"Power"}
-{"cmd":"startCurve","intervalSeconds":5,"hysteresisC":2,"points":[{"temp":45,"cpuLevel":35,"gpuLevel":35},{"temp":55,"cpuLevel":45,"gpuLevel":45},{"temp":65,"cpuLevel":50,"gpuLevel":50}]}
+{"cmd":"startCurve","intervalSeconds":5,"hysteresisC":2,"points":[...]}
 {"cmd":"curveStatus"}
 {"cmd":"stopCurve"}
 ```
 
-当前 Agent 状态：
+- `snapshot` 返回融合快照：product、deviceProfile、temps（LHM/NVML/BIOS）、loads、fans、warnings、raw。
+- 写入命令统一返回融合快照，非管理员返回 `hardware_access_denied`。
+- 曲线 PID 线性插值，CPU/GPU 独立分扇，`writeGate` 串行化防止并发写 EC。
+- 协议版本 `1.0`，向后兼容。
 
-- `snapshot` 可返回 product、deviceProfile、BIOS fan level、fan level、warnings 和 raw EC 字段。
-- `omenctl.Core` 已接入最小 BIOS / EC / fan control 路径。
-- Agent 已支持实验性风扇曲线后台循环：按 `max(trustedCpuTemp, trustedGpuTemp)` 选择温度，升温立即抬档，降温按迟滞阈值防抖。
-- 非管理员运行时，`snapshot` 会降级返回 product / deviceProfile / warnings。
-- 写入类命令需要管理员权限；权限不足时返回 `hardware_access_denied`。
-- 写入类命令返回值已统一为融合后的现代快照，不再混入仅 BIOS/EC 视角的原始温度结果。
-- `setManual`、`setMax`、`applyAndReadback` 已在 8BAB 上验证有效。
-- `snapshot` 当前已优先使用 LibreHardwareMonitor 提供 CPU 温度/负载，使用 NVML 提供 GPU 温度/负载/显存占用，并在 `raw.sensors` 中附带 GPU 功耗与频率。
-- `curveStatus` 当前会返回 `hysteresisC`、`tickCount` 和 `applyCount`，便于观察曲线是否频繁跳档。
-- `diagnostics/omenctl.Diagnostics` 可自动拉起 `omenctl` 并输出 `jsonl + summary`，用于曲线观察和批量回读验证。
+## GUI
 
-## 8BAB 设备画像
+Tauri v2 + Svelte + Tailwind，通过 JSON over stdio 与 Agent 通信。
 
-当前默认策略：
-
-- `fanLevelReliable = true`
-- `fanControlReliable = true`
-- `fanRpmReliable = false`
-- `omenGpuTempReliable = false`
-- `omenFanRateInterpretation = raw`
-- `rawFanMode = 0x44`
-
-展示层不应把 OmenMon 原始 RPM / GPTM 当作可信数据。
-
-## 后续方向
-
-短期目标：
-
-1. 开始构建面向 `omenctl` 的现代 GUI。
-2. GUI 第一阶段优先接入：
-   - `snapshot`
-   - `setManual`
-   - `setMax`
-   - `setProgram`
-   - `startCurve / curveStatus / stopCurve`
-3. 将自动化 diagnostics 结果作为后续曲线调参与稳定性优化依据。
-4. 风扇策略细化、迟滞阈值微调和 `Power/Silent` 去留先后置，不阻塞 GUI 开发。
-
-长期目标是把这个项目变成一个轻量本地 Agent + 现代 UI，而不是继续维护旧 WinForms 控制面板。
+- 实时传感器仪表（温度颜色插值、负载、功耗、频率、显存、系统内存）
+- CPU/GPU 风扇 level 与 RPM（不可信时显示说明文字）
+- 手动控制按钮（Manual 35/35 / 45/45 / 50/50、Max、Power、Silent），曲线运行时弹确认
+- 风扇曲线控制面板（启动/停止/状态，PID 插值，温度→目标 level）
+- Chart.js 实时折线图（CPU/GPU 温度 + fan level，双图并排）
+- Warnings 横幅、Raw JSON 调试面板、快照复制
 
 ## License
 
-本项目基于 GPL-3.0 许可的 OmenMon 代码演化而来，继续遵循 GPL-3.0。原始项目版权归 Piotr Szczepanski 及相关贡献者所有。
+GPL-3.0。原始项目版权归 Piotr Szczepanski 及相关贡献者所有。

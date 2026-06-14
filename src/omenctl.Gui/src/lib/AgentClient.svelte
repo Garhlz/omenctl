@@ -14,6 +14,7 @@
     lastError,
     invokeTauri,
   } from "../stores/agent.svelte.js";
+  import { loadConfig, refreshInterval, showRawJson } from "../stores/config.svelte.js";
 
   let curveRunning = $derived(getCurveRunning());
 
@@ -25,6 +26,7 @@
   async function handleStart() {
     statusMessage = "Starting...";
     try {
+      await loadConfig();
       await invokeTauri("start_agent");
       agentStatus.value = "running";
       statusMessage = "Running";
@@ -89,7 +91,7 @@
       await refreshSnapshot();
       if (agentStatus.value === "running") await refreshCurveStatus();
       schedulePoll();
-    }, 3000);
+    }, refreshInterval.value * 1000);
   }
 
   function startPolling() {
@@ -293,7 +295,9 @@
           <ControlButtons {curveRunning} />
           <CurvePanel />
         </div>
-        <RawJsonPanel json={snapshot.data} />
+        {#if showRawJson.value}
+          <RawJsonPanel json={snapshot.data} />
+        {/if}
       </section>
     {:else}
       <div class="flex items-center justify-center h-64 text-[#8b949e] text-lg">

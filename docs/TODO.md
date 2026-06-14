@@ -114,7 +114,16 @@
 - 硬件命令超时时 GUI 不假死。
 - 日志能用于复现问题。
 
-## P1：配置持久化
+## P1：配置持久化 ✅
+
+**ROI：中高**
+**状态：已完成（2026-06-14）**
+
+- 接入 `tauri-plugin-store`，配置文件 `omenctl-settings.json` 位于用户目录。
+- `config.svelte.js` 封装存储/恢复：手动预设、曲线点、刷新间隔、raw JSON 展开。
+- ControlButtons 按钮从 `manualPresets` 读取动态生成。
+- CurvePanel 启动曲线时 `saveCurvePoints`。
+- AgentClient 轮询间隔读 `refreshInterval`，RawJsonPanel 由 `showRawJson` 控制显隐。
 
 **ROI：中高**  
 **目标：保存用户常用设置，减少每次手动重配。**
@@ -267,6 +276,6 @@
 4. ~~GUI 状态保护~~ ✅
 5. ~~风扇曲线 GUI~~ ✅
 6. ~~diagnostics smoke 回归命令~~ ✅
-7. 配置持久化（保存手动 level、曲线点、刷新间隔、窗口位置）。← 下一步
-8. Agent 生命周期健壮性（自动寻址 exe、崩溃恢复、超时、日志）。
+7. ~~配置持久化~~ ✅
+8. Agent 生命周期健壮性（自动寻址 exe、崩溃恢复、超时、日志）。← 下一步
 9. 托盘、打包、曲线编辑器。

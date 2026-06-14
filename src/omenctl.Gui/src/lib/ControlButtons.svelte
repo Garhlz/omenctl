@@ -1,5 +1,6 @@
 <script>
   import { snapshot, curveStatus, isWriting, invokeTauri } from "../stores/agent.svelte.js";
+  import { manualPresets } from "../stores/config.svelte.js";
 
   let { curveRunning = false } = $props();
 
@@ -55,30 +56,16 @@
     Fan Controls
   </div>
   <div class="flex flex-wrap gap-2">
-    <button
-      onclick={() =>
-        sendCmd({ cmd: "setManual", cpuLevel: 35, gpuLevel: 35 }, true)}
-      disabled={isWriting.value}
-      class="bg-[#21262d] hover:bg-[#30363d] disabled:opacity-40 disabled:cursor-not-allowed text-[#c9d1d9] border border-[#30363d] text-sm px-4 py-2 rounded-md transition-colors"
-    >
-      Manual 35/35
-    </button>
-    <button
-      onclick={() =>
-        sendCmd({ cmd: "setManual", cpuLevel: 45, gpuLevel: 45 }, true)}
-      disabled={isWriting.value}
-      class="bg-[#21262d] hover:bg-[#30363d] disabled:opacity-40 disabled:cursor-not-allowed text-[#c9d1d9] border border-[#30363d] text-sm px-4 py-2 rounded-md transition-colors"
-    >
-      Manual 45/45
-    </button>
-    <button
-      onclick={() =>
-        sendCmd({ cmd: "setManual", cpuLevel: 50, gpuLevel: 50 }, true)}
-      disabled={isWriting.value}
-      class="bg-[#21262d] hover:bg-[#30363d] disabled:opacity-40 disabled:cursor-not-allowed text-[#c9d1d9] border border-[#30363d] text-sm px-4 py-2 rounded-md transition-colors"
-    >
-      Manual 50/50
-    </button>
+    {#each manualPresets.value as preset}
+      <button
+        onclick={() =>
+          sendCmd({ cmd: "setManual", cpuLevel: preset.cpu, gpuLevel: preset.gpu }, true)}
+        disabled={isWriting.value}
+        class="bg-[#21262d] hover:bg-[#30363d] disabled:opacity-40 disabled:cursor-not-allowed text-[#c9d1d9] border border-[#30363d] text-sm px-4 py-2 rounded-md transition-colors"
+      >
+        {preset.cpu}/{preset.gpu}
+      </button>
+    {/each}
     <button
       onclick={() => sendCmd({ cmd: "setMax" }, true)}
       disabled={isWriting.value}

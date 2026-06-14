@@ -7,17 +7,13 @@
     snapshot,
     invokeTauri,
   } from "../stores/agent.svelte.js";
+  import { curvePoints, saveCurvePoints } from "../stores/config.svelte.js";
 
   let curveRunning = $derived(getCurveRunning());
 
-  const FALLBACK_POINTS = [
-    { temp: 45, cpuLevel: 35, gpuLevel: 35 },
-    { temp: 55, cpuLevel: 44, gpuLevel: 44 },
-    { temp: 65, cpuLevel: 52, gpuLevel: 52 },
-    { temp: 75, cpuLevel: 58, gpuLevel: 58 },
-    { temp: 85, cpuLevel: 64, gpuLevel: 64 },
-  ];
-  let defaultPoints = $derived(snapshot.data?.deviceProfile?.recommendedCurve ?? FALLBACK_POINTS);
+  let defaultPoints = $derived(
+    snapshot.data?.deviceProfile?.recommendedCurve ?? curvePoints.value
+  );
   const INTERVAL = 5;
   const HYSTERESIS = 2;
 
@@ -38,6 +34,8 @@
       });
       const resp = typeof raw === "string" ? JSON.parse(raw) : raw;
       if (resp.ok) {
+        curvePoints.value = [...defaultPoints];
+        saveCurvePoints();
         curveStatus.data = resp.data;
         statusText = "Started";
       } else {
