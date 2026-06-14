@@ -251,12 +251,20 @@ UI 和 Agent 都应遵守：
 - **Agent 层升级**：PID 线性插值、独立分扇、writeGate 串行化、LHM 瞬断重试、worker crash guard。
 - **code review 修复**：agent_manager 竞态、setInterval 堆积、死代码清理、默认点同步。
 
-## 12. 当前遗留问题
+## 12. 已完成：托盘 + 命令管道修复
 
-- 风扇曲线点位还需要根据长期 diagnostics 数据调优。
-- `Power/Silent` 的最终语义尚未确定。
-- 曲线编辑器（拖拽调点、hysteresis/interval 调节、preset 导入导出）留待 P2。
+2026-06-15 完成：
+
+- 系统托盘：动态 tooltip（CPU/GPU 温度 + 风扇模式 + level）、Open Dashboard、多档 Manual、Start/Stop Curve、Max Fan、Open Logs、Copy JSON、Exit（确认保护）。
+- 移除 Power/Silent（BIOS fan mode 已被曲线替代）。
+- 命令管道：全局 command_lock 事务串行化、timeout 后 kill agent 自愈、quit_app 正确退出。
+- 配置校验：版本号、level 0-64 范围、曲线升序检查，损坏自动复位。
+
+## 13. 当前遗留问题
+
+- 打包发布（self-contained zip）。
+- 曲线编辑器（拖拽调点、hysteresis/interval 调节、preset 导入导出）。
+- 控制日志（记录写入/读回/曲线 tick，用于复盘风扇行为）。
 - 键盘灯功能暂不做。
 - GPU power UI 暂不做。
 - 新 HP 机型适配暂不做。
-- 打包、签名、托盘常驻仍待后续阶段规划。
