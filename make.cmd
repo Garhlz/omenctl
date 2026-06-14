@@ -99,10 +99,7 @@ if errorlevel 1 goto fail
 
 echo Step 3/4: Building Tauri GUI...
 cd src\omenctl.Gui
-npm run build
-if errorlevel 1 goto fail
-cd src-tauri
-cargo build --release
+cargo tauri build
 if errorlevel 1 goto fail
 cd %~dps0
 

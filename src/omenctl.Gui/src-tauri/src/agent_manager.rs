@@ -60,7 +60,8 @@ impl AgentManager {
         cmd.args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            .stderr(Stdio::piped())
+            .creation_flags(0x08000000); // CREATE_NO_WINDOW
 
         let mut child = cmd.spawn().map_err(|e| {
             let msg = format!("Failed to start agent ({}): {}", program, e);
