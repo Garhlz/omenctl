@@ -1,5 +1,6 @@
 mod agent_manager;
 mod commands;
+mod tray;
 
 use commands::AppState;
 use tauri::Manager;
@@ -22,16 +23,24 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            tray::build_tray(app.handle())?;
             Ok(())
         })
-        .on_window_event(|_window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                // Kill agent subprocess when GUI window closes
-                if let Some(state) = _window.try_state::<AppState>() {
-                    if let Ok(mut agent) = state.agent.lock() {
-                        let _ = agent.stop();
+        .on_window_event(|window, event| {
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    // Hide to tray instead of closing
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
+                tauri::WindowEvent::Destroyed => {
+                    if let Some(state) = window.try_state::<AppState>() {
+                        if let Ok(mut agent) = state.agent.lock() {
+                            let _ = agent.stop();
+                        }
                     }
                 }
+                _ => {}
             }
         })
         .invoke_handler(tauri::generate_handler![

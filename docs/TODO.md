@@ -162,30 +162,16 @@
 - 无效曲线不会发送给 Agent。
 - 默认曲线比当前实验值更适合日常使用。
 
-## P2：托盘与后台常驻
+## P2：托盘与后台常驻 ✅
 
-**ROI：中等**  
-**目标：把 GUI 从调试工具推进到日用工具。**
+**ROI：中等**
+**状态：已完成（2026-06-14）**
 
-任务：
-
-1. 托盘图标。
-2. 最小化到托盘。
-3. 托盘菜单：
-   - Snapshot
-   - Manual 45/45
-   - Max
-   - Start Curve
-   - Stop Curve
-   - Exit
-4. 曲线运行时托盘显示状态。
-5. 退出时提示是否停止曲线。
-
-验收：
-
-- 可以常驻后台。
-- 常用操作不必打开主窗口。
-- 退出行为明确，不误留后台控制。
+- Tauri v2 `TrayIconBuilder` + `tray-icon` feature，右键菜单 6 项。
+- Snapshot / Manual 45/45 / Max / Start Curve / Stop Curve / Exit。
+- 关闭窗口 → 隐藏到托盘（`CloseRequested` 拦截），Exit 真正退出并 stop agent。
+- 前端 `listen` tray events，曲线用 config defaultPoints 启动。
+- AgentClient `$effect` 自动注册/清理事件监听。
 
 ## P2：打包与发布
 

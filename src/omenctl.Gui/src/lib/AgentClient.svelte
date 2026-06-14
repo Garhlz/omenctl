@@ -14,9 +14,45 @@
     lastError,
     invokeTauri,
   } from "../stores/agent.svelte.js";
-  import { loadConfig, refreshInterval, showRawJson } from "../stores/config.svelte.js";
+  import { listen } from '@tauri-apps/api/event';
+  import { loadConfig, refreshInterval, showRawJson, curvePoints } from "../stores/config.svelte.js";
 
   let curveRunning = $derived(getCurveRunning());
+
+  // --- tray event listeners ---
+  const unlisteners = [];
+  $effect(() => {
+    const cmds = {
+      'tray_snapshot': () => refreshSnapshot(),
+      'tray_manual_45': () => sendTrayCmd({ cmd: 'setManual', cpuLevel: 45, gpuLevel: 45 }),
+      'tray_max': () => sendTrayCmd({ cmd: 'setMax' }),
+      'tray_start_curve': async () => {
+        const raw = await invokeTauri('send_command', {
+          command: JSON.stringify({ cmd: 'startCurve', intervalSeconds: 5, hysteresisC: 2, points: curvePoints.value }),
+        });
+        const resp = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (resp.ok) curveStatus.data = resp.data;
+      },
+      'tray_stop_curve': async () => {
+        const raw = await invokeTauri('send_command', { command: '{"cmd":"stopCurve"}' });
+        const resp = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (resp.ok) curveStatus.data = resp.data;
+      },
+    };
+    for (const [event, handler] of Object.entries(cmds)) {
+      listen(event, handler).then(fn => unlisteners.push(fn));
+    }
+    return () => unlisteners.forEach(fn => fn());
+  });
+
+  async function sendTrayCmd(cmdObj) {
+    if (agentStatus.value !== 'running') return;
+    try {
+      const raw = await invokeTauri('send_command', { command: JSON.stringify(cmdObj) });
+      const resp = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (resp.ok) snapshot.data = resp.data;
+    } catch (_) {}
+  }
 
   let statusMessage = $state("Not started");
   let showStart = $derived(agentStatus.value === "stopped" || agentStatus.value === "error");
