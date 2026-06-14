@@ -75,3 +75,10 @@ pub fn get_log_path(state: State<AppState>) -> Option<String> {
     let agent = state.agent.lock().ok()?;
     agent.log_path_string()
 }
+
+#[tauri::command]
+pub fn set_tray_tooltip(app: tauri::AppHandle, text: String) {
+    if let Some(tray) = app.tray_by_id("omenctl-tray") {
+        let _ = tray.set_tooltip(Some(text));
+    }
+}

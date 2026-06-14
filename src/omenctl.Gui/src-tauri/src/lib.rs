@@ -49,6 +49,7 @@ pub fn run() {
             commands::send_command,
             commands::agent_status,
             commands::get_log_path,
+            commands::set_tray_tooltip,
         ])
         .run(tauri::generate_context!())
         .expect("error while running omenctl GUI");

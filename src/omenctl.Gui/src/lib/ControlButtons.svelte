@@ -73,20 +73,6 @@
     >
       Max
     </button>
-    <button
-      onclick={() => sendCmd({ cmd: "setProgram", name: "Power" })}
-      disabled={isWriting.value}
-      class="bg-[#1f6feb]/20 hover:bg-[#1f6feb]/40 disabled:opacity-40 disabled:cursor-not-allowed text-[#58a6ff] border border-[#58a6ff]/30 text-sm px-4 py-2 rounded-md transition-colors"
-    >
-      Power
-    </button>
-    <button
-      onclick={() => sendCmd({ cmd: "setProgram", name: "Silent" })}
-      disabled={isWriting.value}
-      class="bg-[#1f6feb]/20 hover:bg-[#1f6feb]/40 disabled:opacity-40 disabled:cursor-not-allowed text-[#58a6ff] border border-[#58a6ff]/30 text-sm px-4 py-2 rounded-md transition-colors"
-    >
-      Silent
-    </button>
   </div>
   {#if statusText}
     <div

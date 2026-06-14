@@ -14,9 +14,11 @@ async function getStore() {
 // --- defaults ---
 const DEFAULTS = {
   manualPresets: [
+    { cpu: 25, gpu: 25 },
     { cpu: 35, gpu: 35 },
     { cpu: 45, gpu: 45 },
-    { cpu: 50, gpu: 50 },
+    { cpu: 52, gpu: 52 },
+    { cpu: 64, gpu: 64 },
   ],
   curvePoints: [
     { temp: 45, cpuLevel: 35, gpuLevel: 35 },

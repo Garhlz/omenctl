@@ -24,8 +24,11 @@
   $effect(() => {
     const cmds = {
       'tray_snapshot': () => refreshSnapshot(),
+      'tray_manual_35': () => sendTrayCmd({ cmd: 'setManual', cpuLevel: 35, gpuLevel: 35 }),
       'tray_manual_45': () => sendTrayCmd({ cmd: 'setManual', cpuLevel: 45, gpuLevel: 45 }),
-      'tray_max': () => sendTrayCmd({ cmd: 'setMax' }),
+      'tray_manual_52': () => sendTrayCmd({ cmd: 'setManual', cpuLevel: 52, gpuLevel: 52 }),
+      'tray_manual_64': () => sendTrayCmd({ cmd: 'setManual', cpuLevel: 64, gpuLevel: 64 }),
+      'tray_max': () => sendTrayCmd({ cmd: 'setMax' }, true),
       'tray_start_curve': async () => {
         const raw = await invokeTauri('send_command', {
           command: JSON.stringify({ cmd: 'startCurve', intervalSeconds: 5, hysteresisC: 2, points: curvePoints.value }),
@@ -38,6 +41,21 @@
         const resp = typeof raw === 'string' ? JSON.parse(raw) : raw;
         if (resp.ok) curveStatus.data = resp.data;
       },
+      'tray_copy_json': () => { if (snapshot.data) navigator.clipboard.writeText(JSON.stringify(snapshot.data, null, 2)); },
+      'tray_logs': async () => {
+        try {
+          const path = await invokeTauri('get_log_path');
+          if (path) {
+            const dir = path.replace(/[\\/]agent-[^\\/]*\.log$/, '');
+            await invokeTauri('plugin:opener|open_path', { path: dir });
+          }
+        } catch (_) {}
+      },
+      'tray_exit': async () => {
+        if (curveRunning && !window.confirm('Fan curve is running. Stop curve and exit?')) return;
+        if (agentStatus.value === 'running') await invokeTauri('stop_agent');
+        await invokeTauri('plugin:opener|exit'); // fallback if app.exit doesn't trigger
+      },
     };
     for (const [event, handler] of Object.entries(cmds)) {
       listen(event, handler).then(fn => unlisteners.push(fn));
@@ -45,8 +63,25 @@
     return () => unlisteners.forEach(fn => fn());
   });
 
-  async function sendTrayCmd(cmdObj) {
+  // Update tray tooltip when snapshot changes
+  $effect(() => {
+    if (snapshot.data) {
+      const cpu = snapshot.data.temps?.cpu?.value;
+      const gpu = snapshot.data.temps?.gpu?.value;
+      const cpuLvl = snapshot.data.fans?.cpu?.level;
+      const gpuLvl = snapshot.data.fans?.gpu?.level;
+      const mode = curveRunning ? 'Curve' : 'Manual';
+      const tip = `omenctl\nCPU ${cpu != null ? cpu.toFixed(0) : '--'}°C · GPU ${gpu != null ? gpu.toFixed(0) : '--'}°C\n${mode} · Fan ${cpuLvl ?? '--'}/${gpuLvl ?? '--'}`;
+      invokeTauri('set_tray_tooltip', { text: tip }).catch(() => {});
+    }
+  });
+
+  async function sendTrayCmd(cmdObj, confirmNeeded = false) {
     if (agentStatus.value !== 'running') return;
+    if (confirmNeeded && curveRunning) {
+      if (!window.confirm('Fan curve is running. Stop the curve before using manual controls?')) return;
+      try { await invokeTauri('send_command', { command: '{"cmd":"stopCurve"}' }); } catch (_) {}
+    }
     try {
       const raw = await invokeTauri('send_command', { command: JSON.stringify(cmdObj) });
       const resp = typeof raw === 'string' ? JSON.parse(raw) : raw;
