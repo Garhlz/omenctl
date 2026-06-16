@@ -260,9 +260,16 @@ UI 和 Agent 都应遵守：
 - 命令管道：全局 command_lock 事务串行化、timeout 后 kill agent 自愈、quit_app 正确退出。
 - 配置校验：版本号、level 0-64 范围、曲线升序检查，损坏自动复位。
 
-## 13. 当前遗留问题
+## 13. 已完成：打包发布
 
-- 打包发布（self-contained zip）。
+2026-06-15 完成自助打包流程。
+
+- `.\make.cmd release`：.NET 构建 → Agent self-contained publish → npm build → cargo tauri build → 复制 GUI exe + driver + license → zip。
+- 产物 `release/omenctl-v0.1.0.zip`（~40MB），解压后 `omenctl-gui.exe` 即可运行。
+- Agent 子进程控制台已隐藏，前端资源嵌入 Tauri 二进制。
+
+## 14. 当前遗留问题
+
 - 曲线编辑器（拖拽调点、hysteresis/interval 调节、preset 导入导出）。
 - 控制日志（记录写入/读回/曲线 tick，用于复盘风扇行为）。
 - 键盘灯功能暂不做。
